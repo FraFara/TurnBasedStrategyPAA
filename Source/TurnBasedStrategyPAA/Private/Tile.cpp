@@ -6,7 +6,7 @@
 // Sets default values
 ATile::ATile()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 
 	// template function that creates a components
@@ -50,11 +50,21 @@ FVector2D ATile::GetGridPosition()
 	return TileGridPosition;
 }
 
+void ATile::SetOccupyingUnit(AUnit* Unit)
+{
+	OccupyingUnit = Unit;
+}
+
+AUnit* ATile::GetOccupyingUnit()
+{
+	return OccupyingUnit;
+}
+
 // Called when the game starts or when spawned
 void ATile::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 }
 
 // Called every frame

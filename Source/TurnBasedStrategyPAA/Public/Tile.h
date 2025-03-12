@@ -6,6 +6,9 @@
 #include "GameFramework/Actor.h"
 #include "Tile.generated.h"
 
+// Forward declaration
+class AUnit;
+
 UENUM()
 enum class ETileStatus : uint8
 {
@@ -37,11 +40,18 @@ public:
 	// get the (x, y) position
 	FVector2D GetGridPosition();
 
+	// Set the occupying unit
+	void SetOccupyingUnit(AUnit* Unit);
+
+	// returns the unit occupying the tile
+	UFUNCTION(BlueprintCallable, Category = "Tile")
+	AUnit* GetOccupyingUnit();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	//Needed to add "Tile" to the scene
+	// To add visuals to the scene
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USceneComponent* Scene;
 
@@ -61,7 +71,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	FVector2D TileGridPosition;
 
-	//OccupyingUnit
+	// Pointer to occupying unit
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	AUnit* OccupyingUnit;
 
 	//public:	
 	//	// Called every frame

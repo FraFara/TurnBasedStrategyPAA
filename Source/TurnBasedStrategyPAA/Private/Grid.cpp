@@ -7,7 +7,7 @@
 // Sets default values
 AGrid::AGrid()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	//Size of the grid (25x25)
 	Size = 25;
@@ -21,7 +21,7 @@ AGrid::AGrid()
 void AGrid::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
-	//normalized tilepadding
+	// normalized tilepadding
 	NextCellPositionMultiplier = FMath::RoundToDouble(((TileSize + TileSize * CellPadding) / TileSize) * 100) / 100;
 }
 
@@ -30,22 +30,22 @@ void AGrid::BeginPlay()
 {
 	Super::BeginPlay();
 	GenerateGrid();
-	
+
 }
 
-//Resets the grid to empty
+// Resets the grid to empty
 void AGrid::ResetGrid()
 {
-	for (ATile* Obj : TileArray) //make each tile of the grid empty
+	for (ATile* Obj : TileArray) // make each tile of the grid empty
 	{
 		Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
 	}
 	// send broadcast event to registered objects 
 	OnResetEvent.Broadcast();
- //	A_GameMode* GameMode = Cast<ATTT_GameMode>(GetWorld()->GetAuthGameMode());
-//	GameMode->IsGameOver = false;
-//	GameMode->MoveCounter = 0;
-//	GameMode->ChoosePlayerAndStartGame();
+	//	A_GameMode* GameMode = Cast<ATTT_GameMode>(GetWorld()->GetAuthGameMode());
+   //	GameMode->IsGameOver = false;
+   //	GameMode->MoveCounter = 0;
+   //	GameMode->ChoosePlayerAndStartGame();
 }
 
 //Generates a squared (size x size) grid
@@ -121,4 +121,3 @@ FVector AGrid::GetWorldLocationFromGrid(int32 GridX, int32 GridY)
 //	Super::Tick(DeltaTime);
 //
 //}
-
