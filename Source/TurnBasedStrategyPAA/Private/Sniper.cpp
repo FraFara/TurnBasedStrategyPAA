@@ -7,6 +7,8 @@
 ASniper::ASniper()
 {
     // Sniper specific stats
+    UnitType = EUnitType::SNIPER;
+    UnitName = "Sniper";
     MovementRange = 3;
     AttackType = EAttackType::RANGE;
     AttackRange = 10;

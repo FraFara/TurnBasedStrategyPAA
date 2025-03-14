@@ -6,13 +6,12 @@
 #include "GameFramework/Actor.h"
 #include "Tile.generated.h"
 
-// Forward declaration
 class AUnit;
 
 UENUM()
 enum class ETileStatus : uint8
 {
-	EMPTY     UMETA(DisplayName = "Empty"),
+	EMPTY		  UMETA(DisplayName = "Empty"),
 	OCCUPIED      UMETA(DisplayName = "Occupied"),
 };
 

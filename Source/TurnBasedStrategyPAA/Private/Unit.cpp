@@ -18,15 +18,15 @@ AUnit::AUnit()
     SetRootComponent(SceneComponent);
     StaticMeshComponent->SetupAttachment(SceneComponent);
 
-    // Initialize variables
-    MovementRange = 3;
-    AttackType = EAttackType::MELEE;
-    AttackRange = 1;
-    MinDamage = 1;
-    MaxDamage = 6;
-    Health = 40;
-    MaxHealth = 40;
-    OwnerID = -1;
+    //// Initialize variables
+    //MovementRange = 3;
+    //AttackType = EAttackType::MELEE;
+    //AttackRange = 1;
+    //MinDamage = 1;
+    //MaxDamage = 6;
+    //Health = 40;
+    //MaxHealth = 40;
+    //OwnerID = -1;
 
     bHasMoved = false;
     bHasAttacked = false;
@@ -60,9 +60,59 @@ void AUnit::SetOwner(int32 InOwnerID)
     OwnerID = InOwnerID;
 }
 
+FString AUnit::GetUnitName() const
+{
+    return UnitName;
+}
+
 int32 AUnit::GetOwnerID() const
 {
     return OwnerID;
+}
+
+int32 AUnit::GetUnitHealth() const
+{
+    return Health;
+}
+
+int32 AUnit::GetMaxHealth() const
+{
+    return MaxHealth;
+}
+
+EUnitType AUnit::GetUnitType() const
+{
+    return UnitType;
+}
+
+EAttackType AUnit::GetAttackType() const
+{
+    return AttackType;
+}
+
+int32 AUnit::GetAttackRange() const
+{
+    return AttackRange;
+}
+
+int32 AUnit::GetMinDamage() const
+{
+    return MinDamage;
+}
+
+int32 AUnit::GetMaxDamage() const
+{
+    return MaxDamage;
+}
+
+float AUnit::GetAverageAttackDamage() const
+{
+    return ((static_cast<float>(MinDamage) + static_cast<float>(MaxDamage))/2.f);
+}
+
+FString AUnit::GetLiveHealth() const
+{
+    return FString::Printf(TEXT("%s's Hp: %d / %d"), UnitName, Health, MaxHealth);
 }
 
 // Changes the tile status and ownership
@@ -93,12 +143,9 @@ bool AUnit::MoveToTile(ATile* Tile)
     if (!ValidTiles.Contains(Tile))
         return false;
 
-    // Update the old tile
-    if (CurrentTile)    // If the unit is on a tile. Useful for the spawn of new units
-    {
+    // Updates the old tile
         CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
         CurrentTile->SetOccupyingUnit(nullptr); // Clear the old tile's occupying unit
-    }
 
     // Update the new tile
     CurrentTile = Tile;

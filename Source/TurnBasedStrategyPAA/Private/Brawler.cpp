@@ -3,6 +3,8 @@
 ABrawler::ABrawler()
 {
     // Brawler stats
+    UnitType = EUnitType::BRAWLER;
+    UnitName = "Brawler";
     MovementRange = 6;
     AttackType = EAttackType::MELEE;
     AttackRange = 1;

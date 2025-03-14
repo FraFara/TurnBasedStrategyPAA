@@ -8,12 +8,28 @@
 #include "Grid.h"
 #include "Unit.generated.h"
 
+// Unit types
+UENUM(BlueprintType)
+enum class EUnitType : uint8
+{
+    BRAWLER   UMETA(DisplayName = "Brawler"),
+    SNIPER   UMETA(DisplayName = "Sniper"),
+};
+
 // Unit attack types
 UENUM(BlueprintType)
 enum class EAttackType : uint8
 {
-    RANGE     UMETA(DisplayName = "Range"),
-    MELEE     UMETA(DisplayName = "Melee"),
+    RANGE   UMETA(DisplayName = "Range"),
+    MELEE   UMETA(DisplayName = "Melee"),
+};
+
+// Team color
+UENUM(BlueprintType)
+enum class EUnitColor : uint8
+{
+    RED     UMETA(DisplayName = "Red"),
+    BLUE    UMETA(DisplayName = "Blue"),
 };
 
 class AGrid;
@@ -30,9 +46,48 @@ public:
     // Set the unit's owner
     void SetOwner(int32 InOwnerID);
 
+    // Get unit's name
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    FString GetUnitName() const;
+
     // Get the unit's owner
     UFUNCTION(BlueprintCallable, Category = "Unit")
     int32 GetOwnerID() const;
+
+    // Get unit's Hp
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    int32 GetUnitHealth() const;
+
+    // Get unit's Max Hp
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    int32 GetMaxHealth() const;
+
+    // Get unit's type
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    EUnitType GetUnitType() const;
+
+    // Get unit's Attack type
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    EAttackType GetAttackType() const;
+
+    // Get unit's Attack Range
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    int32 GetAttackRange() const;
+
+    // Get unit's min and max damage
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    int32 GetMinDamage() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    int32 GetMaxDamage() const;
+
+    // Get unit's average Attack Damage
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    float GetAverageAttackDamage() const;
+
+    // Get unit's health/max health
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    FString GetLiveHealth() const;
 
     // Initialize unit's grid position
     UFUNCTION(BlueprintCallable, Category = "Unit")
@@ -78,6 +133,15 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Unit")
     bool HasAttacked() const;
 
+        // Has moved this turn
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
+    bool bHasMoved;
+
+    // Has attacked this turn
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
+    bool bHasAttacked;
+
+
 protected:
     // Called when the game starts or when spawned
     virtual void BeginPlay() override;
@@ -90,9 +154,17 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UStaticMeshComponent* StaticMeshComponent;
 
+    // String containing the name of a unit
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
+    FString UnitName;
+
     // Movement range
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
     int32 MovementRange;
+
+    // Unit type
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
+    EUnitType UnitType;
 
     // Attack type (range or melee)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
@@ -125,14 +197,6 @@ protected:
     // Current tile position
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
     ATile* CurrentTile;
-
-    // Has moved this turn
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
-    bool bHasMoved;
-
-    // Has attacked this turn
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
-    bool bHasAttacked;
 
     // Reference to the grid
     UPROPERTY(Transient)
