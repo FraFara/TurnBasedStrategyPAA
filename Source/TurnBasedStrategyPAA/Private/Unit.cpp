@@ -251,8 +251,7 @@ TArray<ATile*> AUnit::GetAttackTiles() // Similar structure as the GetMovementTi
         int32 CurrentDistance = Distance[Tile];
 
         // Checks if this is an attackable tile (if it is occupied by enemy)
-        if (Tile->GetTileStatus() == ETileStatus::OCCUPIED &&
-            Tile->GetOwner() != OwnerID)
+        if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() != OwnerID)
         {
             ValidTiles.Add(Tile);
         }

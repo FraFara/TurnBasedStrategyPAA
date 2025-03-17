@@ -36,5 +36,6 @@ public:
 	// Virtual function to show a message when the player lose "Attackable tiles" in the player interfae
 	virtual void OnLose() {};
 	// Virtual function for placement phase
-	virtual void OnPlacementTurn() {};
+	virtual void OnPlacement() {};
+
 };

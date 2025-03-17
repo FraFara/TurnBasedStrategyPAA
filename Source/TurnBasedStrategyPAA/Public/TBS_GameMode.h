@@ -36,6 +36,10 @@ public:
 	UPROPERTY(Transient)
 	AGrid* GameGrid;
 
+	// TSubclassOf is a template class that provides UClass type safety.
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AGrid> GridClass;
+
 	// Grid size
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Rules")
 	int32 GridSize;
@@ -62,7 +66,7 @@ public:
 
 	// Obstacles percentage
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Rules") // implementare un limite?
-		float ObstaclePercentage;
+	float ObstaclePercentage;
 
 	// Types of units
 	UPROPERTY(EditDefaultsOnly, Category = "Playing Units")
@@ -101,7 +105,7 @@ public:
 
 	// Place a unit at the specified tile
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
-	bool PlaceUnit(FString UnitType, int32 GridX, int32 GridY, int32 PlayerIndex);
+	bool PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 PlayerIndex);
 
 	// Check if the game is over
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")

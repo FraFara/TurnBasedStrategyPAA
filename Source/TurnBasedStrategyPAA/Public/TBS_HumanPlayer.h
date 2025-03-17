@@ -39,6 +39,9 @@ protected:
 	// keeps track of turn
 	bool IsMyTurn = false;
 
+	// Array of Player's units
+	UPROPERTY()
+	TArray<AUnit*> MyUnits;
 
 	// Marks the selected unit
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
@@ -65,7 +68,8 @@ public:
 	virtual void OnTurn() override;
 	virtual void OnWin() override;
 	virtual void OnLose() override;
-	virtual void OnPlacementTurn() override;
+	virtual void OnPlacement() override;
+	void FindMyUnits();
 
 	// called on left mouse click (binding)
 	UFUNCTION()
@@ -73,7 +77,7 @@ public:
 
 	// Spawns new unit on grid
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
-	void PlaceUnit(int32 GridX, int32 GridY, FString UnitName);
+	void PlaceUnit(int32 GridX, int32 GridY, EUnitType Type);
 
 	// Skip the turn for the current unit
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
@@ -83,9 +87,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void EndTurn();
 
-
-
-	// Helper methods for highlighting
+	// Methods for highlighting
 	void HighlightMovementTiles();
 	void HighlightAttackTiles();
 	void ClearHighlightedTiles();

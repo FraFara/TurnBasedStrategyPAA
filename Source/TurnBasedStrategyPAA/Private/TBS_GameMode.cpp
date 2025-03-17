@@ -4,7 +4,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "Brawler.h"
 #include "Sniper.h"
+#include "TBS_HumanPlayer.h"
 #include "TBS_PlayerInterface.h"
+#include "EngineUtils.h"
 
 ATBS_GameMode::ATBS_GameMode()
 {
@@ -12,35 +14,57 @@ ATBS_GameMode::ATBS_GameMode()
     NumberOfPlayers = 2;
     UnitsPerPlayer = 2;
     CurrentPlayer = 0;
+    GridSize = 25;
     CurrentPhase = EGamePhase::NONE;
     UnitsPlaced = 0;
     bIsGameOver = false;
-    ObstaclePercentage = 10.0f;     // I picked this as default percentage
+    ObstaclePercentage = 10.0f;     // Random default obstacle percentage
 }
 
 void ATBS_GameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Find the grid
-    TArray<AActor*> FoundActors;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGrid::StaticClass(), FoundActors);
-    if (FoundActors.Num() > 0)
+    // Find the human player
+    ATBS_HumanPlayer* HumanPlayer = GetWorld()->GetFirstPlayerController()->GetPawn<ATBS_HumanPlayer>();
+    if (!IsValid(HumanPlayer))
     {
-        GameGrid = Cast<AGrid>(FoundActors[0]);
+        UE_LOG(LogTemp, Error, TEXT("No player pawn of type ATBS_HumanPlayer was found."));
+        return;
     }
 
-    // Find all players (Human and AI)
-    TArray<AActor*> FoundPlayers;
-    UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
-
-    // Add them to our Players array
-    for (AActor* Actor : FoundPlayers)
+    // Spawn Grid
+    if (GridClass != nullptr)
     {
-        Players.Add(Actor);
+        GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
+        GameGrid->Size = GridSize;
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Game Field is null"));
     }
 
-    // Set initial values for units remaining
+    float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
+    float Zposition = 1000.0f;
+    FVector CameraPos(CameraPosX, CameraPosX, Zposition);
+    HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
+
+    //// Find all players (Human and AI) -> added in case of more players
+    //TArray<AActor*> FoundPlayers;
+    //UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
+
+    //// Add them to our Players array
+    //for (AActor* Actor : FoundPlayers)
+    //{
+    //    Players.Add(Actor);
+    //}
+
+    // Human player = 0
+    Players.Add(HumanPlayer);
+    // Random Player
+//   auto* AI = GetWorld()->SpawnActor<ATTT_RandomPlayer>(FVector(), FRotator());
+
+    // Set initial values for units per player
     UnitsRemaining.SetNum(NumberOfPlayers);
     for (int32 i = 0; i < NumberOfPlayers; i++)
     {
@@ -60,19 +84,20 @@ int32 ATBS_GameMode::SimulateCoinToss()
 }
 
 // Placement Phase
-void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayerIndex)
+void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
 {
-    CurrentPlayer = StartingPlayerIndex;
+    CurrentPlayer = StartingPlayer;
     CurrentPhase = EGamePhase::SETUP;       // Setup phase
 
     // Notify the first player it's their turn to place units
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
-        if (PlayerActor && PlayerActor->GetClass()->ImplementsInterface(UTBS_PlayerInterface::StaticClass()))
-        {
-            ITBS_PlayerInterface::Execute_OnPlacementTurn(PlayerActor);
-        }
+        
+        // Get the interface pointer
+        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+        // Call the OnPlacement function
+        PlayerInterface->OnPlacement();
     }
 }
 
@@ -90,18 +115,19 @@ void ATBS_GameMode::StartGameplayPhase()
         for (AActor* Actor : AllUnits)
         {
             AUnit* Unit = Cast<AUnit>(Actor);
-            if (Unit)
-            {
-                Unit->ResetTurn();
-            }
+           
+            Unit->ResetTurn();
+            
         }
 
         // Notify the player it's their turn
         AActor* PlayerActor = Players[CurrentPlayer];
-        if (PlayerActor && PlayerActor->GetClass()->ImplementsInterface(UTBS_PlayerInterface::StaticClass()))
-        {
-            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
-        }
+
+        // Get the interface pointer
+        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+
+        // Call the OnTurn function
+        PlayerInterface->OnTurn();
     }
 }
 
@@ -116,7 +142,7 @@ void ATBS_GameMode::EndTurn()
         return;
     }
 
-    // Reset all units for the new player's turn
+    // Resets all units for the new player's turn
     TArray<AActor*> AllUnits;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
 
@@ -133,21 +159,23 @@ void ATBS_GameMode::EndTurn()
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
-        if (PlayerActor && PlayerActor->GetClass()->ImplementsInterface(UTBS_PlayerInterface::StaticClass()))
-        {
-            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
-        }
+      
+        // Get the interface pointer
+        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+           
+        // Call the OnTurn function
+        PlayerInterface->OnTurn();
     }
 }
 
-bool ATBS_GameMode::PlaceUnit(FString UnitType, int32 GridX, int32 GridY, int32 PlayerIndex)
+bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 PlayerIndex)
 {
     if (!GameGrid || CurrentPhase != EGamePhase::SETUP || PlayerIndex != CurrentPlayer)
     {
         return false;
     }
 
-    // Check if the tile is valid and empty
+    // Checks if the tile is valid and empty
     if (!GameGrid->TileMap.Contains(FVector2D(GridX, GridY)))
     {
         return false;
@@ -159,19 +187,17 @@ bool ATBS_GameMode::PlaceUnit(FString UnitType, int32 GridX, int32 GridY, int32 
         return false;
     }
 
-    // Spawn the unit
+    // Spawns the unit
     AUnit* NewUnit = nullptr;
-    FVector SpawnLocation = Tile->GetActorLocation() + FVector(0, 0, 20.0f);
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    FVector SpawnLocation = Tile->GetActorLocation() + FVector(0, 0, 10.0f); // Spawns the unit slightly above the tiles
 
-    if (UnitType.Equals("Brawler") && BrawlerClass)
+    if (Type == EUnitType::BRAWLER && BrawlerClass)
     {
-        NewUnit = GetWorld()->SpawnActor<AUnit>(BrawlerClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+        NewUnit = GetWorld()->SpawnActor<AUnit>(BrawlerClass, SpawnLocation, FRotator::ZeroRotator);
     }
-    else if (UnitType.Equals("Sniper") && SniperClass)
+    else if (Type == EUnitType::SNIPER && SniperClass)
     {
-        NewUnit = GetWorld()->SpawnActor<AUnit>(SniperClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+        NewUnit = GetWorld()->SpawnActor<AUnit>(SniperClass, SpawnLocation, FRotator::ZeroRotator);
     }
 
     if (NewUnit)
@@ -187,18 +213,22 @@ bool ATBS_GameMode::PlaceUnit(FString UnitType, int32 GridX, int32 GridY, int32 
         if (UnitsPlaced < NumberOfPlayers * UnitsPerPlayer)
         {
             // Switch to the other player if we've placed one unit
-            if (UnitsPlaced % 2 == 1)
+            CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
+
+            if (Players.IsValidIndex(CurrentPlayer))
             {
-                CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
-                if (Players.IsValidIndex(CurrentPlayer))
+                AActor* PlayerActor = Players[CurrentPlayer];
+
+                // Get the interface pointer
+                ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+                if (PlayerInterface)
                 {
-                    AActor* PlayerActor = Players[CurrentPlayer];
-                    if (PlayerActor && PlayerActor->GetClass()->ImplementsInterface(UTBS_PlayerInterface::StaticClass()))
-                    {
-                        ITBS_PlayerInterface::Execute_OnPlacementTurn(PlayerActor);
-                    }
+                    // Call the OnPlacement function
+                    PlayerInterface->OnPlacement();
                 }
+                
             }
+            
         }
         else
         {
@@ -282,15 +312,22 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
         if (Players.IsValidIndex(i))
         {
             AActor* PlayerActor = Players[i];
-            if (PlayerActor && PlayerActor->GetClass()->ImplementsInterface(UTBS_PlayerInterface::StaticClass()))
+            if (PlayerActor)
             {
-                if (i == PlayerIndex)
+                // Get the interface pointer
+                ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+                if (PlayerInterface)
                 {
-                    ITBS_PlayerInterface::Execute_OnWin(PlayerActor);
-                }
-                else
-                {
-                    ITBS_PlayerInterface::Execute_OnLose(PlayerActor);
+                    if (i == PlayerIndex)
+                    {
+                        // Call the OnWin function
+                        PlayerInterface->OnWin();
+                    }
+                    else
+                    {
+                        // Call the OnLose function
+                        PlayerInterface->OnLose();
+                    }
                 }
             }
         }
