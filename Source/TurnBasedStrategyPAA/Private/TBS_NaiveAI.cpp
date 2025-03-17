@@ -4,7 +4,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Grid.h"
 #include "TBS_GameMode.h"
-//#include "TBS_GameInstance.h"
+#include "TBS_GameInstance.h"
 #include "EngineUtils.h"
 
 // Sets default values
@@ -17,8 +17,8 @@ ATBS_NaiveAI::ATBS_NaiveAI()
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 
 	// Default values
-	//MinActionDelay = 0.5f;
-	//MaxActionDelay = 2.0f;
+	MinActionDelay = 0.5f;
+	MaxActionDelay = 2.0f;
 	bIsProcessingTurn = false;
 	PlayerNumber = 1; // Default AI is player 1
 	UnitColor = EUnitColor::RED;
@@ -29,16 +29,16 @@ void ATBS_NaiveAI::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Get the game instance (similar to TTT_RandomPlayer)
+	// Get the game instance
 	GameInstance = Cast<UTBS_GameInstance>(UGameplayStatics::GetGameInstance(GetWorld()));
 
-	//// Find the grid
-	//TArray<AActor*> FoundActors;
-	//UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGrid::StaticClass(), FoundActors);
-	//if (FoundActors.Num() > 0)
-	//{
-	//	Grid = Cast<AGrid>(FoundActors[0]);
-	//}
+	// Find the grid
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGrid::StaticClass(), FoundActors);
+	if (FoundActors.Num() > 0)
+	{
+		Grid = Cast<AGrid>(FoundActors[0]);
+	}
 }
 
 // Called every frame
@@ -48,20 +48,18 @@ void ATBS_NaiveAI::Tick(float DeltaTime)
 }
 
 // Called to bind functionality to input
-//void ATBS_NaiveAI::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-//{
-//	Super::SetupPlayerInputComponent(PlayerInputComponent);
-//	// AI doesn't need input bindings
-//}
+void ATBS_NaiveAI::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
 
 void ATBS_NaiveAI::OnTurn()
 {
-	// Similar to TTT_RandomPlayer's OnTurn
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Turn"));
 
-		//GameInstance->SetTurnMessage(TEXT("AI (Random) Turn"));
+	GameInstance->SetTurnMessage(TEXT("AI (Random) Turn"));
 
-	// Add slight delay before taking action to make it more natural
+// Add slight delay before taking action to make it more natural
 	bIsProcessingTurn = true;
 	float Delay = FMath::RandRange(MinActionDelay, MaxActionDelay);
 	GetWorldTimerManager().SetTimer(ActionTimerHandle, this, &ATBS_NaiveAI::ProcessTurnAction, Delay, false);
@@ -71,15 +69,15 @@ void ATBS_NaiveAI::OnWin()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Wins!"));
 
-		//GameInstance->SetTurnMessage(TEXT("AI (Random) Wins!"));
-		//GameInstance->RecordGameResult(false); // Human didn't win
+	GameInstance->SetTurnMessage(TEXT("AI (Random) Wins!"));
+	GameInstance->RecordGameResult(false); // Human didn't win
 }
 
 void ATBS_NaiveAI::OnLose()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Loses!"));
 
-		//GameInstance->SetTurnMessage(TEXT("AI Loses!"));
+	GameInstance->SetTurnMessage(TEXT("AI Loses!"));
 }
 
 void ATBS_NaiveAI::OnPlacement()
@@ -87,9 +85,9 @@ void ATBS_NaiveAI::OnPlacement()
 	// AI received placement notification
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI Placing Units"));
 
-		//GameInstance->SetTurnMessage(TEXT("AI Placing Units"));
+	GameInstance->SetTurnMessage(TEXT("AI Placing Units"));
 
-	// Add slight delay before placing units
+// Add slight delay before placing units
 	bIsProcessingTurn = true;
 	float Delay = FMath::RandRange(MinActionDelay, MaxActionDelay);
 	GetWorldTimerManager().SetTimer(ActionTimerHandle, this, &ATBS_NaiveAI::ProcessPlacementAction, Delay, false);
@@ -137,17 +135,11 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
 
 		// Record move in game instance
-		//FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
-		//GameInstance->AddMoveToHistory({
-		//	PlayerNumber,
-		//	UnitTypeString,
-		//	"Place",
-		//	FVector2D::ZeroVector,
-		//	FVector2D(GridX, GridY),
-		//	0
-		//	});
+		FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
+
+		GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place", FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
 	}
-bIsProcessingTurn = false;
+	bIsProcessingTurn = false;
 }
 
 bool ATBS_NaiveAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
@@ -243,14 +235,7 @@ void ATBS_NaiveAI::ProcessUnitAction(AUnit* Unit)
 		Unit->bHasAttacked = true;
 
 		// Record skipped turn
-			//GameInstance->AddMoveToHistory({
-			//	PlayerNumber,
-			//	Unit->GetUnitName(),
-			//	"Skip",
-			//	FVector2D::ZeroVector,
-			//	FVector2D::ZeroVector,
-			//	0
-			//	});
+			GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Skip", FVector2D::ZeroVector, FVector2D::ZeroVector, 0);
 	}
 }
 
@@ -280,21 +265,14 @@ bool ATBS_NaiveAI::TryMoveUnit(AUnit* Unit)
 	if (Success)
 	{
 		// Record move
-		//GameInstance->AddMoveToHistory({
-		//	PlayerNumber,
-		//	Unit->GetUnitName(),
-		//	"Move",
-		//	FromPosition,
-		//	ToPosition,
-		//	0
-		//	});
+		GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
 
-		//// Notify using game mode
-		//ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-		//if (GameMode)
-		//{
-		//	GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
-		//}
+		// Notify using game mode
+		ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+		if (GameMode)
+		{
+			GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
+		}
 	}
 
 	return Success;
@@ -328,29 +306,20 @@ bool ATBS_NaiveAI::TryAttackWithUnit(AUnit* Unit)
 	// Attack the unit
 	int32 Damage = Unit->Attack(TargetUnit);
 
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("AI %s dealt %d damage to %s"), *Unit->GetUnitName(), Damage, *TargetUnit->GetUnitName()));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("AI %s dealt %d damage to %s"), *Unit->GetUnitName(), Damage, *TargetUnit->GetUnitName()));
 
-		// Record attack
-		//if (GameInstance)
-		//{
-		//	GameInstance->AddMoveToHistory({
-		//		PlayerNumber,
-		//		Unit->GetUnitName(),
-		//		"Attack",
-		//		FromPosition,
-		//		ToPosition,
-		//		Damage
-		//		});
-		//}
+	// Record attack
+	if (GameInstance)
+	{
+		GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
+	}
 
-		// Notify using game mode
-		//ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-		//if (GameMode)
-		//{
-		//	GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
-		//}
+	// Notify using game mode
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 
-		return true;
+	GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
+
+	return true;
 
 }
 
@@ -358,10 +327,8 @@ void ATBS_NaiveAI::FinishTurn()
 {
 	// End our turn via the GameMode
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-	if (GameMode)
-	{
-		GameMode->EndTurn();
-	}
+
+	GameMode->EndTurn();
 
 	bIsProcessingTurn = false;
 }

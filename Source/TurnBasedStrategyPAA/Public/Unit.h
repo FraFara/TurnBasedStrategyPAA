@@ -12,6 +12,7 @@
 UENUM(BlueprintType)
 enum class EUnitType : uint8
 {
+    NONE    UMETA(DisplayName = "None"),
     BRAWLER   UMETA(DisplayName = "Brawler"),
     SNIPER   UMETA(DisplayName = "Sniper"),
 };
@@ -20,6 +21,7 @@ enum class EUnitType : uint8
 UENUM(BlueprintType)
 enum class EAttackType : uint8
 {
+    NONE    UMETA(DisplayName = "None"),
     RANGE   UMETA(DisplayName = "Range"),
     MELEE   UMETA(DisplayName = "Melee"),
 };
@@ -28,6 +30,7 @@ enum class EAttackType : uint8
 UENUM(BlueprintType)
 enum class EUnitColor : uint8
 {
+    NONE    UMETA(DisplayName = "None"),
     RED     UMETA(DisplayName = "Red"),
     BLUE    UMETA(DisplayName = "Blue"),
 };

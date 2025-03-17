@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "Unit.h"
 #include "TBS_PlayerInterface.h"
+#include "TBS_GameInstance.h"
 #include "Camera/CameraComponent.h"
 #include "TBS_HumanPlayer.generated.h"
 
@@ -47,6 +48,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	AUnit* SelectedUnit;
 
+	// Currently selected unit type for placement
+	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
+	EUnitType UnitToPlace;
+
 	// Currently highlighted tiles
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	TArray<ATile*> HighlightedMovementTiles;
@@ -71,9 +76,13 @@ public:
 	virtual void OnPlacement() override;
 	void FindMyUnits();
 
-	// called on left mouse click (binding)
+	// Called on left mouse click
 	UFUNCTION()
 	void OnClick();
+
+	// Called on right mouse click
+	UFUNCTION()
+	void OnRightClick();
 
 	// Spawns new unit on grid
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")

@@ -5,6 +5,9 @@
 #include "Brawler.h"
 #include "Sniper.h"
 #include "TBS_HumanPlayer.h"
+#include "TBS_NaiveAI.h"
+//#include "TBS_PlayerController.h"
+#include "TBS_GameInstance.h"
 #include "TBS_PlayerInterface.h"
 #include "EngineUtils.h"
 
@@ -19,6 +22,12 @@ ATBS_GameMode::ATBS_GameMode()
     UnitsPlaced = 0;
     bIsGameOver = false;
     ObstaclePercentage = 10.0f;     // Random default obstacle percentage
+
+    // Set default player controller class
+    //PlayerControllerClass = ATBS_PlayerController::StaticClass();
+
+    // Set default pawn class
+    DefaultPawnClass = ATBS_HumanPlayer::StaticClass();
 }
 
 void ATBS_GameMode::BeginPlay()
@@ -332,4 +341,44 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
             }
         }
     }
+}
+
+void ATBS_GameMode::SpawnObstacles()
+{
+    if (ObstaclePercentage <= 0.0f)
+        return;
+
+    // Calculate number of obstacles to place
+    int32 TotalCells = GridSize * GridSize;
+    int32 ObstaclesToPlace = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
+
+    // Simple random placement for now
+    for (int32 i = 0; i < ObstaclesToPlace; i++)
+    {
+        int32 RandomX = FMath::RandRange(0, GridSize - 1);
+        int32 RandomY = FMath::RandRange(0, GridSize - 1);
+
+        if (GameGrid->TileMap.Contains(FVector2D(RandomX, RandomY)))
+        {
+            ATile* Tile = GameGrid->TileMap[FVector2D(RandomX, RandomY)];
+            if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
+            {
+                // Mark as obstacles
+                // For now, we can just make it occupied with a special owner ID
+                Tile->SetTileStatus(-2, ETileStatus::OCCUPIED); // -2 for obstacles
+
+                // Specific mesh or material for obstacles here
+            }
+        }
+    }
+}
+
+
+void ATBS_GameMode::RecordMove(int32 PlayerIndex, FString UnitType, FString ActionType,
+    FVector2D FromPosition, FVector2D ToPosition, int32 Damage)
+{
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+        
+    GameInstance->AddMoveToHistory(PlayerIndex, UnitType, ActionType, FromPosition, ToPosition, Damage);
+    
 }

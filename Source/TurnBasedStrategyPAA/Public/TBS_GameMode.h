@@ -123,4 +123,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	void PlayerWon(int32 PlayerIndex);
 
+	// Spawn obstacles on the grid
+	UFUNCTION(BlueprintCallable, Category = "Game Setup")
+	void SpawnObstacles();
+
+	// Record a move to the game instance
+	UFUNCTION(BlueprintCallable, Category = "Game History")
+	void RecordMove(int32 PlayerIndex, FString UnitType, FString ActionType,
+		FVector2D FromPosition, FVector2D ToPosition, int32 Damage);
+
 };

@@ -18,15 +18,9 @@ AUnit::AUnit()
     SetRootComponent(SceneComponent);
     StaticMeshComponent->SetupAttachment(SceneComponent);
 
-    //// Initialize variables
-    //MovementRange = 3;
-    //AttackType = EAttackType::MELEE;
-    //AttackRange = 1;
-    //MinDamage = 1;
-    //MaxDamage = 6;
-    //Health = 40;
-    //MaxHealth = 40;
-    //OwnerID = -1;
+    // Initialize variables
+    AttackType = EAttackType::NONE;
+    UnitType = EUnitType::NONE;
 
     bHasMoved = false;
     bHasAttacked = false;
@@ -112,7 +106,7 @@ float AUnit::GetAverageAttackDamage() const
 
 FString AUnit::GetLiveHealth() const
 {
-    return FString::Printf(TEXT("%s's Hp: %d / %d"), UnitName, Health, MaxHealth);
+    return FString::Printf(TEXT("%s's Hp: %d / %d"), *UnitName, Health, MaxHealth);
 }
 
 // Changes the tile status and ownership

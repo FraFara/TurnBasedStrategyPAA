@@ -20,7 +20,7 @@ public:
 
 	// Reference to game instance
 	UPROPERTY()
-	//class UTBS_GameInstance* GameInstance; ------------------------------------------------------------------
+	class UTBS_GameInstance* GameInstance;
 
 protected:
 	// Called when the game starts or when spawned
