@@ -6,7 +6,7 @@
 #include "Sniper.h"
 #include "TBS_HumanPlayer.h"
 #include "TBS_NaiveAI.h"
-//#include "TBS_PlayerController.h"
+#include "TBS_PlayerController.h"
 #include "TBS_GameInstance.h"
 #include "TBS_PlayerInterface.h"
 #include "EngineUtils.h"
@@ -24,7 +24,7 @@ ATBS_GameMode::ATBS_GameMode()
     ObstaclePercentage = 10.0f;     // Random default obstacle percentage
 
     // Set default player controller class
-    //PlayerControllerClass = ATBS_PlayerController::StaticClass();
+    PlayerControllerClass = ATBS_PlayerController::StaticClass();
 
     // Set default pawn class
     DefaultPawnClass = ATBS_HumanPlayer::StaticClass();
@@ -35,43 +35,73 @@ void ATBS_GameMode::BeginPlay()
     Super::BeginPlay();
 
     // Find the human player
-    ATBS_HumanPlayer* HumanPlayer = GetWorld()->GetFirstPlayerController()->GetPawn<ATBS_HumanPlayer>();
-    if (!IsValid(HumanPlayer))
+    APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+    if (!PlayerController)
     {
-        UE_LOG(LogTemp, Error, TEXT("No player pawn of type ATBS_HumanPlayer was found."));
+        UE_LOG(LogTemp, Error, TEXT("No Player Controller found"));
         return;
+    }
+
+    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
+    if (!HumanPlayer)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Attempting to spawn HumanPlayer"));
+
+        // If no pawn exists, try to spawn one
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = PlayerController;
+        HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
+
+        if (HumanPlayer)
+        {
+            PlayerController->Possess(HumanPlayer);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to spawn HumanPlayer"));
+            return;
+        }
     }
 
     // Spawn Grid
     if (GridClass != nullptr)
     {
         GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
-        GameGrid->Size = GridSize;
+        if (GameGrid)
+        {
+            GameGrid->Size = GridSize;
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to spawn grid"));
+        }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Game Field is null"));
+        UE_LOG(LogTemp, Error, TEXT("GridClass is null"));
     }
 
     float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
-    float Zposition = 1000.0f;
+    float Zposition = 3000.0f;
     FVector CameraPos(CameraPosX, CameraPosX, Zposition);
     HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
 
-    //// Find all players (Human and AI) -> added in case of more players
-    //TArray<AActor*> FoundPlayers;
-    //UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
+    // Find all players (Human and AI) -> added in case of more players
+    TArray<AActor*> FoundPlayers;
+    UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
 
-    //// Add them to our Players array
-    //for (AActor* Actor : FoundPlayers)
-    //{
-    //    Players.Add(Actor);
-    //}
+    // Add them to our Players array
+    for (AActor* Actor : FoundPlayers)
+    {
+        Players.Add(Actor);
+    }
 
     // Human player = 0
     Players.Add(HumanPlayer);
     // Random Player
-//   auto* AI = GetWorld()->SpawnActor<ATTT_RandomPlayer>(FVector(), FRotator());
+    auto* AI = GetWorld()->SpawnActor<ATBS_NaiveAI>(FVector(), FRotator());
+
+    // Aggiungere eventuale altra ia
 
     // Set initial values for units per player
     UnitsRemaining.SetNum(NumberOfPlayers);
