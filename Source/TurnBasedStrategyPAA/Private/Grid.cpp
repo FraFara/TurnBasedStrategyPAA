@@ -3,6 +3,7 @@
 
 #include "Grid.h"
 #include "Kismet/GameplayStatics.h"
+#include "TBS_GameMode.h"
 
 // Sets default values
 AGrid::AGrid()
@@ -42,10 +43,10 @@ void AGrid::ResetGrid()
 	}
 	// send broadcast event to registered objects 
 	OnResetEvent.Broadcast();
-	//	A_GameMode* GameMode = Cast<ATTT_GameMode>(GetWorld()->GetAuthGameMode());
-   //	GameMode->IsGameOver = false;
-   //	GameMode->MoveCounter = 0;
-   //	GameMode->ChoosePlayerAndStartGame();
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->bIsGameOver = false;
+	GameMode->CurrentPhase = EGamePhase::NONE;
+	GameMode->SimulateCoinToss();
 }
 
 //Generates a squared (size x size) grid
@@ -100,7 +101,6 @@ FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 {
 	const double XPos = Location.X / (TileSize * NextCellPositionMultiplier);
 	const double YPos = Location.Y / (TileSize * NextCellPositionMultiplier);
-	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("x=%f,y=%f"), XPos, YPos));
 	return FVector2D(XPos, YPos);
 }
 

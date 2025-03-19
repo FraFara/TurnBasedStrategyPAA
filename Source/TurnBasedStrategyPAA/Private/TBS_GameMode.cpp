@@ -90,16 +90,17 @@ void ATBS_GameMode::BeginPlay()
     TArray<AActor*> FoundPlayers;
     UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
 
-    // Add them to our Players array
-    for (AActor* Actor : FoundPlayers)
-    {
-        Players.Add(Actor);
-    }
+    // Clear Players array before adding
+    Players.Empty();
 
-    // Human player = 0
+    // Add human player (index 0)
     Players.Add(HumanPlayer);
-    // Random Player
+
+    // Add AI player (index 1)
     auto* AI = GetWorld()->SpawnActor<ATBS_NaiveAI>(FVector(), FRotator());
+    Players.Add(AI);
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Players added: %d"), Players.Num()));
 
     // Aggiungere eventuale altra ia
 
@@ -110,8 +111,16 @@ void ATBS_GameMode::BeginPlay()
         UnitsRemaining[i] = UnitsPerPlayer;
     }
 
+    // Add debug messages for game start
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Game Starting - Coin Toss"));
+
+    // Place some obstacles 
+    SpawnObstacles();
+
     // Start the game with a coin toss
     int32 StartingPlayer = SimulateCoinToss();
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Coin Toss Result: Player %d starts"), StartingPlayer));
+
     StartPlacementPhase(StartingPlayer);
 }
 
@@ -119,7 +128,15 @@ void ATBS_GameMode::BeginPlay()
 int32 ATBS_GameMode::SimulateCoinToss()
 {
     // Randomly determine starting player (0 or 1)
-    return FMath::RandRange(0, 1);
+    int32 StartingPlayer = FMath::RandRange(0, 1);
+
+    // Get game instance and set the starting player message
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+
+    GameInstance->SetStartingPlayerMessage(StartingPlayer);
+
+
+    return StartingPlayer;
 }
 
 // Placement Phase
@@ -132,7 +149,7 @@ void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
-        
+
         // Get the interface pointer
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
         // Call the OnPlacement function
@@ -154,9 +171,9 @@ void ATBS_GameMode::StartGameplayPhase()
         for (AActor* Actor : AllUnits)
         {
             AUnit* Unit = Cast<AUnit>(Actor);
-           
+
             Unit->ResetTurn();
-            
+
         }
 
         // Notify the player it's their turn
@@ -198,10 +215,10 @@ void ATBS_GameMode::EndTurn()
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
-      
+
         // Get the interface pointer
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
-           
+
         // Call the OnTurn function
         PlayerInterface->OnTurn();
     }
@@ -265,9 +282,9 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
                     // Call the OnPlacement function
                     PlayerInterface->OnPlacement();
                 }
-                
+
             }
-            
+
         }
         else
         {
@@ -408,7 +425,7 @@ void ATBS_GameMode::RecordMove(int32 PlayerIndex, FString UnitType, FString Acti
     FVector2D FromPosition, FVector2D ToPosition, int32 Damage)
 {
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
-        
+
     GameInstance->AddMoveToHistory(PlayerIndex, UnitType, ActionType, FromPosition, ToPosition, Damage);
-    
+
 }

@@ -90,7 +90,12 @@ public:
 
     // Get unit's health/max health
     UFUNCTION(BlueprintCallable, Category = "Unit")
-    FString GetLiveHealth() const;
+    FString GetLiveHealth();
+
+    // Get Health's percentage
+    UFUNCTION(BlueprintCallable, Category = "Unit")
+    float GethealthPercentage();
+
 
     // Initialize unit's grid position
     UFUNCTION(BlueprintCallable, Category = "Unit")

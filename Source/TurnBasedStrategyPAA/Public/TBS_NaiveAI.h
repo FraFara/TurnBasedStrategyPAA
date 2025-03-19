@@ -9,6 +9,16 @@
 #include "Tile.h"
 #include "TBS_NaiveAI.generated.h"
 
+// Enum for AI actions
+	UENUM(BlueprintType)
+	enum class EAIAction : uint8
+{
+	NONE        UMETA(DisplayName = "None"),
+	MOVEMENT    UMETA(DisplayName = "Movement"),
+	ATTACK      UMETA(DisplayName = "Attack"),
+	PLACEMENT   UMETA(DisplayName = "Unit Placement")
+};
+
 UCLASS()
 class TURNBASEDSTRATEGYPAA_API ATBS_NaiveAI : public APawn, public ITBS_PlayerInterface
 {
@@ -43,9 +53,13 @@ protected:
 	UPROPERTY()
 	class AGrid* Grid;
 
+	// Current AI action
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
+	EAIAction CurrentAction;
+
 	// Current unit being controlled by AI
 	UPROPERTY()
-	AUnit* CurrentUnit;
+	AUnit* SelectedUnit;
 
 	// Array of AI's units
 	UPROPERTY()
@@ -86,4 +100,11 @@ public:
 	virtual void OnWin() override;
 	virtual void OnLose() override;
 	virtual void OnPlacement() override;
+
+	// Skip method
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void SkipUnitTurn();
+	// EndTurn
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void EndTurn();
 };

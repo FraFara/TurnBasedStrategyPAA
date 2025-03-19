@@ -14,7 +14,7 @@
 // Sets default values
 ATBS_HumanPlayer::ATBS_HumanPlayer()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	// Set this pawn to be controlled by the lowest-numbered player
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -39,7 +39,16 @@ ATBS_HumanPlayer::ATBS_HumanPlayer()
 void ATBS_HumanPlayer::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	// Get the game instance
+	UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+
+	// Initialize UnitToPlace to NONE
+	UnitToPlace = EUnitType::NONE;
+
+	// Log that the human player is ready
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
+
 }
 
 // Called every frame
@@ -61,8 +70,6 @@ void ATBS_HumanPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAction("MoveAction", IE_Pressed, this, &ATBS_HumanPlayer::HighlightMovementTiles);
 	PlayerInputComponent->BindAction("AttacAction", IE_Pressed, this, &ATBS_HumanPlayer::HighlightAttackTiles);
 	PlayerInputComponent->BindAction("SkipUnitTurn", IE_Pressed, this, &ATBS_HumanPlayer::SkipUnitTurn);
-	PlayerInputComponent->BindAction("EndTurn", IE_Pressed, this, &ATBS_HumanPlayer::EndTurn);
-	//PlayerInputComponent->BindAction("ChangeCamera", IE_Pressed, this, &ATBS_HumanPlayer::ChangeCameraPosition);
 
 }
 
@@ -84,8 +91,12 @@ void ATBS_HumanPlayer::OnLose()
 
 void ATBS_HumanPlayer::OnPlacement()
 {
+	UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
 	IsMyTurn = true;
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Place Your Units"));
+	CurrentAction = EPlayerAction::PLACEMENT;
+	GameInstance->SetTurnMessage(TEXT("Place Your Units"));
+
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Your Turn to Place Units"));
 }
 
 void ATBS_HumanPlayer::FindMyUnits()
@@ -149,7 +160,7 @@ void ATBS_HumanPlayer::OnClick()
 						else
 						{
 							SelectedUnit = UnitOnTile;
-							
+
 							FString SelectMessage = FString::Printf(TEXT("Selected %s"), *UnitOnTile->GetUnitName());
 							GameInstance->SetTurnMessage(SelectMessage);
 
@@ -172,7 +183,7 @@ void ATBS_HumanPlayer::OnClick()
 							{
 								GameInstance->SetTurnMessage(ActionMsg);
 							}
-							
+
 						}
 					}
 				}
@@ -194,16 +205,16 @@ void ATBS_HumanPlayer::OnClick()
 						if (GameInstance)
 						{
 							// Log the movement in history
-							GameInstance->AddMoveToHistory(PlayerNumber, SelectedUnit->GetUnitName(), TEXT("Move"), FromPos, ToPos,0);
+							GameInstance->AddMoveToHistory(PlayerNumber, SelectedUnit->GetUnitName(), TEXT("Move"), FromPos, ToPos, 0);
 
 							GameInstance->SetTurnMessage(TEXT("Unit moved"));
 						}
 
 						// Get game mode to record the move
 						ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-						
+
 						GameMode->RecordMove(PlayerNumber, SelectedUnit->GetUnitName(), TEXT("Move"), FromPos, ToPos, 0);
-						
+
 
 						// Clear highlighted tiles
 						ClearHighlightedTiles();
@@ -211,9 +222,9 @@ void ATBS_HumanPlayer::OnClick()
 						// If the unit can still attack, show message
 						if (!SelectedUnit->HasAttacked())
 						{
-							
+
 							GameInstance->SetTurnMessage(TEXT("Attack available"));
-							
+
 						}
 						else
 						{
@@ -310,16 +321,16 @@ void ATBS_HumanPlayer::OnClick()
 					}
 					else
 					{
-						
+
 						GameInstance->SetTurnMessage(TEXT("Select unit type to place"));
-						
+
 					}
 				}
 				else
 				{
-					
+
 					GameInstance->SetTurnMessage(TEXT("Cannot place unit here"));
-					
+
 				}
 				break;
 			}
@@ -352,6 +363,22 @@ void ATBS_HumanPlayer::OnRightClick()
 	}
 }
 
+void ATBS_HumanPlayer::SelectBrawlerForPlacement()
+{
+	UnitToPlace = EUnitType::BRAWLER;
+
+	UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+	GameInstance->SetTurnMessage(TEXT("Place Brawler - Click on an empty tile"));
+}
+
+void ATBS_HumanPlayer::SelectSniperForPlacement()
+{
+	UnitToPlace = EUnitType::SNIPER;
+
+	UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+	GameInstance->SetTurnMessage(TEXT("Place Sniper - Click on an empty tile"));
+}
+
 
 void ATBS_HumanPlayer::SkipUnitTurn()
 {
@@ -370,120 +397,118 @@ void ATBS_HumanPlayer::SkipUnitTurn()
 	}
 }
 
-	void ATBS_HumanPlayer::EndTurn()
+void ATBS_HumanPlayer::EndTurn()
+{
+}
+
+void ATBS_HumanPlayer::HighlightMovementTiles()
+{
+	if (!IsMyTurn || !SelectedUnit || SelectedUnit->HasMoved())
 	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot move this unit"));
+		return;
 	}
 
-	void ATBS_HumanPlayer::HighlightMovementTiles()
+	// Clear any existing highlights
+	ClearHighlightedTiles();
+
+	// Get movement tiles
+	HighlightedMovementTiles = SelectedUnit->GetMovementTiles();
+
+	// Apply visual highlight to each tile (this is where you'd add material changes)
+	for (ATile* Tile : HighlightedMovementTiles)
 	{
-		if (!IsMyTurn || !SelectedUnit || SelectedUnit->HasMoved())
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot move this unit"));
-			return;
-		}
-
-		// Clear any existing highlights
-		ClearHighlightedTiles();
-
-		// Get movement tiles
-		HighlightedMovementTiles = SelectedUnit->GetMovementTiles();
-
-		// Apply visual highlight to each tile (this is where you'd add material changes)
-		for (ATile* Tile : HighlightedMovementTiles)
-		{
-			// Add visual highlight here - for now just debug msg
-			GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Green,
-				FString::Printf(TEXT("Movement tile: (%d, %d)"),
-					(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
-		}
-
-		// Set action
-		CurrentAction = EPlayerAction::MOVEMENT;
-
-		// Highlight Tiles IMPLEMENTA https://www.youtube.com/watch?v=R7oLZL97XYo&ab_channel=BuildGamesWithJon
+		// Add visual highlight here - for now just debug msg
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Green,
+			FString::Printf(TEXT("Movement tile: (%d, %d)"),
+				(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
 	}
 
-	void ATBS_HumanPlayer::HighlightAttackTiles()
+	// Set action
+	CurrentAction = EPlayerAction::MOVEMENT;
+
+	// Highlight Tiles IMPLEMENTA https://www.youtube.com/watch?v=R7oLZL97XYo&ab_channel=BuildGamesWithJon
+}
+
+void ATBS_HumanPlayer::HighlightAttackTiles()
+{
+	if (!IsMyTurn || !SelectedUnit || SelectedUnit->HasAttacked())
 	{
-		if (!IsMyTurn || !SelectedUnit || SelectedUnit->HasAttacked())
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot attack with this unit"));
-			return;
-		}
-
-		// Clear any existing highlights
-		ClearHighlightedTiles();
-
-		// Get attack tiles
-		HighlightedAttackTiles = SelectedUnit->GetAttackTiles();
-
-		// Apply visual highlight to each tile (this is where you'd add material changes)
-		for (ATile* Tile : HighlightedAttackTiles)
-		{
-			// Add visual highlight here - for now just debug msg
-			GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Red,
-				FString::Printf(TEXT("Attack tile: (%d, %d)"),
-					(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
-		}
-
-		// Set mode
-		CurrentAction = EPlayerAction::ATTACK;
-
-		// Highlight Tiles IMPLEMENTA https://www.youtube.com/watch?v=R7oLZL97XYo&ab_channel=BuildGamesWithJon
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot attack with this unit"));
+		return;
 	}
 
-	void ATBS_HumanPlayer::ClearHighlightedTiles()
+	// Clear any existing highlights
+	ClearHighlightedTiles();
+
+	// Get attack tiles
+	HighlightedAttackTiles = SelectedUnit->GetAttackTiles();
+
+	// Apply visual highlight to each tile (this is where you'd add material changes)
+	for (ATile* Tile : HighlightedAttackTiles)
 	{
-		// Clear visual highlights (this is where you'd remove material changes)
-		for (ATile* Tile : HighlightedMovementTiles)
-		{
-			// Remove visual highlight here
-		}
-
-		for (ATile* Tile : HighlightedAttackTiles)
-		{
-			// Remove visual highlight here
-		}
-
-		// Clear arrays
-		HighlightedMovementTiles.Empty();
-		HighlightedAttackTiles.Empty();
-
-		// Reset mode
-		CurrentAction = EPlayerAction::NONE;
+		// Add visual highlight here - for now just debug msg
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Red,
+			FString::Printf(TEXT("Attack tile: (%d, %d)"),
+				(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
 	}
 
-	void ATBS_HumanPlayer::PlaceUnit(int32 GridX, int32 GridY, EUnitType Type)
+	// Set mode
+	CurrentAction = EPlayerAction::ATTACK;
+
+	// Highlight Tiles IMPLEMENTA https://www.youtube.com/watch?v=R7oLZL97XYo&ab_channel=BuildGamesWithJon
+}
+
+void ATBS_HumanPlayer::ClearHighlightedTiles()
+{
+	// Clear visual highlights (this is where you'd remove material changes)
+	for (ATile* Tile : HighlightedMovementTiles)
 	{
-		// Implementation would connect to GameMode's PlaceUnit function
-		// Get the game mode
-		AGameModeBase* GameModeBase = GetWorld()->GetAuthGameMode();
-		if (GameModeBase)
-		{
-			// Cast to game mode
-			ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GameModeBase);
-			//Place the unit through the game mode
-			GameMode->PlaceUnit(Type, GridX, GridY, PlayerNumber);
-		}
+		// Remove visual highlight here
 	}
 
+	for (ATile* Tile : HighlightedAttackTiles)
+	{
+		// Remove visual highlight here
+	}
+
+	// Clear arrays
+	HighlightedMovementTiles.Empty();
+	HighlightedAttackTiles.Empty();
+
+	// Reset mode
+	CurrentAction = EPlayerAction::NONE;
+}
+
+void ATBS_HumanPlayer::PlaceUnit(int32 GridX, int32 GridY, EUnitType Type)
+{
+	// Implementation would connect to GameMode's PlaceUnit function
+	// Get the game mode
+	AGameModeBase* GameModeBase = GetWorld()->GetAuthGameMode();
+	if (GameModeBase)
+	{
+		// Cast to game mode
+		ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GameModeBase);
+		//Place the unit through the game mode
+		GameMode->PlaceUnit(Type, GridX, GridY, PlayerNumber);
+	}
+}
 
 
-	//void ATBS_HumanPlayer::ChangeCameraPosition()
-	//{
 
-	// Default top-down view
-	//Camera->SetRelativeLocation(FVector(0, 0, 200));
-	//Camera->SetRelativeRotation(FRotator(-90, 0, 0));
+//void ATBS_HumanPlayer::ChangeCameraPosition()
+//{
 
-	// Isometric view from one corner
-	//		Camera->SetRelativeLocation(FVector(-200, -200, 150));
-	//		Camera->SetRelativeRotation(FRotator(-45, 45, 0));
+// Default top-down view
+//Camera->SetRelativeLocation(FVector(0, 0, 200));
+//Camera->SetRelativeRotation(FRotator(-90, 0, 0));
 
-	// Isometric view from opposite corner
-	//		Camera->SetRelativeLocation(FVector(200, 200, 150));
-	//		Camera->SetRelativeRotation(FRotator(-45, 225, 0));
+// Isometric view from one corner
+//		Camera->SetRelativeLocation(FVector(-200, -200, 150));
+//		Camera->SetRelativeRotation(FRotator(-45, 45, 0));
 
-	//}
+// Isometric view from opposite corner
+//		Camera->SetRelativeLocation(FVector(200, 200, 150));
+//		Camera->SetRelativeRotation(FRotator(-45, 225, 0));
 
-
+//}

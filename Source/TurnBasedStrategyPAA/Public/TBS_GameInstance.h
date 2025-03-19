@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Unit.h"
 #include "TBS_GameInstance.generated.h"
 
 /**
@@ -15,15 +16,6 @@ class TURNBASEDSTRATEGYPAA_API UTBS_GameInstance : public UGameInstance
     GENERATED_BODY()
 
 public:
-    //// Initial game configuration -> not sure i need this
-    //UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Configuration")
-    //int32 DefaultGridSize = 25;
-
-    //UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Configuration")
-    //int32 UnitsPerPlayer = 2;
-
-    //UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Configuration")
-    //float ObstaclePercentage = 10.0f;
 
     // Score values
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Statistics")
@@ -60,6 +52,9 @@ public:
     // Functions to manage turn messages
     UFUNCTION(BlueprintCallable, Category = "Game UI")
     FString GetTurnMessage() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Game UI")
+    void SetStartingPlayerMessage(int32 PlayerIndex);
 
     UFUNCTION(BlueprintCallable, Category = "Game UI")
     void SetTurnMessage(const FString& Message);

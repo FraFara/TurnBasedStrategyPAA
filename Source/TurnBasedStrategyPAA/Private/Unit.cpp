@@ -104,10 +104,18 @@ float AUnit::GetAverageAttackDamage() const
     return ((static_cast<float>(MinDamage) + static_cast<float>(MaxDamage))/2.f);
 }
 
-FString AUnit::GetLiveHealth() const
+FString AUnit::GetLiveHealth()
 {
-    return FString::Printf(TEXT("%s's Hp: %d / %d"), *UnitName, Health, MaxHealth);
+    return FString::Printf(TEXT("Hp: %d / %d"), Health, MaxHealth);
 }
+
+float AUnit::GethealthPercentage()
+{
+    float HealthPercentage = 100.0 / (Health / MaxHealth);
+
+    return HealthPercentage;
+}
+
 
 // Changes the tile status and ownership
 void AUnit::InitializePosition(ATile* Tile)

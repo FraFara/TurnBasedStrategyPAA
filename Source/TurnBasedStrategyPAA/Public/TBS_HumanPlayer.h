@@ -56,11 +56,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	TArray<ATile*> HighlightedMovementTiles;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	TArray<ATile*> HighlightedAttackTiles;
 
 	// Current action
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	EPlayerAction CurrentAction;
 
 public:	
@@ -84,6 +84,10 @@ public:
 	UFUNCTION()
 	void OnRightClick();
 
+	// SelectUnitForPlacement
+	void SelectBrawlerForPlacement();
+	void SelectSniperForPlacement();
+
 	// Spawns new unit on grid
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void PlaceUnit(int32 GridX, int32 GridY, EUnitType Type);
@@ -97,8 +101,13 @@ public:
 	void EndTurn();
 
 	// Methods for highlighting
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void HighlightMovementTiles();
+
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void HighlightAttackTiles();
+
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void ClearHighlightedTiles();
 
 	// Parameter to keep track of the camera position
