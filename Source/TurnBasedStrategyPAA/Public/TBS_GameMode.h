@@ -64,6 +64,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Rules")
 	int32 UnitsPerPlayer;
 
+	// Track what unit types have been placed by each player
+	UPROPERTY()
+	TArray<bool> BrawlerPlaced;  // Indexed by player number
+
+	UPROPERTY()
+	TArray<bool> SniperPlaced;   // Indexed by player number
+
 	// Obstacles percentage
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Rules") // implementare un limite?
 	float ObstaclePercentage;

@@ -13,6 +13,7 @@
 #include "TBS_GameInstance.h"
 #include "TBS_PlayerInterface.h"
 #include "EngineUtils.h"
+#include "Components/Widget.h"
 
 ATBS_GameMode::ATBS_GameMode()
 {
@@ -26,31 +27,69 @@ ATBS_GameMode::ATBS_GameMode()
     bIsGameOver = false;
     ObstaclePercentage = 10.0f;     // Random default obstacle percentage
 
+    // Initialize unit placement tracking
+    BrawlerPlaced.Init(false, NumberOfPlayers);
+    SniperPlaced.Init(false, NumberOfPlayers);
+
     // Set default player controller class
     PlayerControllerClass = ATBS_PlayerController::StaticClass();
 
     // Set default pawn class
     DefaultPawnClass = ATBS_HumanPlayer::StaticClass();
+
+    // Load the Brawler and Sniper classes (add this)
+    static ConstructorHelpers::FClassFinder<ABrawler> BrawlerBP(TEXT("/Game/Blueprints/BP_Brawler"));
+    if (BrawlerBP.Class)
+    {
+        BrawlerClass = BrawlerBP.Class;
+    }
+
+    static ConstructorHelpers::FClassFinder<ASniper> SniperBP(TEXT("/Game/Blueprints/BP_Sniper"));
+    if (SniperBP.Class)
+    {
+        SniperClass = SniperBP.Class;
+    }
 }
 
 void ATBS_GameMode::BeginPlay()
 {
     Super::BeginPlay();
 
+    // Span Grid
+    if (GridClass != nullptr)
+    {
+        GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
+        if (GameGrid)
+        {
+            GameGrid->Size = GridSize;
+            GameGrid->GenerateGrid(); // Ensure grid is generated before other operations
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn grid"));
+            return;
+        }
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("GridClass is null"));
+        return;
+    }
+
+
     // Find the human player
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (!PlayerController)
     {
-        UE_LOG(LogTemp, Error, TEXT("No Player Controller found"));
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
         return;
     }
 
     ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
     if (!HumanPlayer)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Attempting to spawn HumanPlayer"));
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Spawning HumanPlayer"));
 
-        // If no pawn exists, try to spawn one
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = PlayerController;
         HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
@@ -58,54 +97,33 @@ void ATBS_GameMode::BeginPlay()
         if (HumanPlayer)
         {
             PlayerController->Possess(HumanPlayer);
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("HumanPlayer spawned successfully"));
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Failed to spawn HumanPlayer"));
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn HumanPlayer"));
             return;
         }
     }
 
-    // Spawn Grid
-    if (GridClass != nullptr)
+    // Ensure Players array is properly populated
+    Players.Empty();
+    Players.Add(HumanPlayer);
+
+    // Spawn AI player ONCE
+    auto* AI = GetWorld()->SpawnActor<ATBS_NaiveAI>(FVector(), FRotator());
+    if (AI)
     {
-        GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
-        if (GameGrid)
-        {
-            GameGrid->Size = GridSize;
-        }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("Failed to spawn grid"));
-        }
+        Players.Add(AI);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("AI Player added successfully"));
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("GridClass is null"));
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn AI Player"));
     }
-
-    float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
-    float Zposition = 3000.0f;
-    FVector CameraPos(CameraPosX, CameraPosX, Zposition);
-    HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
-
     // Find all players (Human and AI) -> added in case of more players
     TArray<AActor*> FoundPlayers;
     UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
-
-    // Clear Players array before adding
-    Players.Empty();
-
-    // Add human player (index 0)
-    Players.Add(HumanPlayer);
-
-    // Add AI player (index 1)
-    auto* AI = GetWorld()->SpawnActor<ATBS_NaiveAI>(FVector(), FRotator());
-    Players.Add(AI);
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Players added: %d"), Players.Num()));
-
-    // Aggiungere eventuale altra ia
 
     // Set initial values for units per player
     UnitsRemaining.SetNum(NumberOfPlayers);
@@ -113,6 +131,14 @@ void ATBS_GameMode::BeginPlay()
     {
         UnitsRemaining[i] = UnitsPerPlayer;
     }
+
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("BeginPlay - Setting up players"));
+
+    float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
+    float Zposition = 3000.0f;
+    FVector CameraPos(CameraPosX, CameraPosX, Zposition);
+    HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
 
     // Add debug messages for game start
     GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Game Starting - Coin Toss"));
@@ -129,18 +155,73 @@ void ATBS_GameMode::BeginPlay()
 
 void ATBS_GameMode::ShowUnitSelectionUI()
 {
-    if (!UnitSelectionWidgetClass)
-        return;
-
-    // Create the widget if it doesn't exist
-    if (!UnitSelectionWidget)
+    // Clear existing widget
+    if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())
     {
-        UnitSelectionWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), UnitSelectionWidgetClass);
+        UnitSelectionWidget->RemoveFromParent();
+        UnitSelectionWidget = nullptr;
     }
 
-    if (UnitSelectionWidget && !UnitSelectionWidget->IsInViewport())
+    // Create a new widget instance
+    if (UnitSelectionWidgetClass)
     {
-        UnitSelectionWidget->AddToViewport();
+        // Get the player controller
+        APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+        if (PlayerController)
+        {
+            // Create the widget with explicit player controller
+            UnitSelectionWidget = CreateWidget<UUserWidget>(PlayerController, UnitSelectionWidgetClass);
+
+            if (UnitSelectionWidget)
+            {
+                // Add it to viewport with high Z-Order to ensure it's on top
+                UnitSelectionWidget->AddToViewport(100);
+
+                // Enable input for the player controller
+                FInputModeUIOnly InputMode;
+                InputMode.SetWidgetToFocus(UnitSelectionWidget->TakeWidget());
+                InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+                PlayerController->SetInputMode(InputMode);
+
+                // Find and update button visibility based on what's already placed
+                UButton* BrawlerButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("BrawlerButton")));
+                UButton* SniperButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("SniperButton")));
+                // Update button visibility based on what's been placed
+                if (BrawlerButton && SniperButton)
+                {
+                    if (BrawlerPlaced[CurrentPlayer])
+                    {
+                        // Cast to UWidget first or access as widget
+                        Cast<UWidget>(BrawlerButton)->SetVisibility(ESlateVisibility::Hidden);
+                    }
+
+                    if (SniperPlaced[CurrentPlayer])
+                    {
+                        Cast<UWidget>(SniperButton)->SetVisibility(ESlateVisibility::Hidden);
+                    }
+
+                    // If both are placed, auto-hide the widget
+                    if (BrawlerPlaced[CurrentPlayer] && SniperPlaced[CurrentPlayer])
+                    {
+                        UnitSelectionWidget->RemoveFromParent();
+                        UnitSelectionWidget = nullptr;
+
+                        // Restore game input
+                        PlayerController->SetInputMode(InputMode);
+                    }
+                }
+            }
+            else
+            {
+                // Debug message if widget creation failed
+                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to create UnitSelectionWidget"));
+            }
+        }
+    }
+    else
+    {
+        // Debug message if widget class is not set
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("UnitSelectionWidgetClass is not set"));
     }
 }
 
@@ -149,6 +230,15 @@ void ATBS_GameMode::HideUnitSelectionUI()
     if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())
     {
         UnitSelectionWidget->RemoveFromParent();
+        UnitSelectionWidget = nullptr;
+
+        // Restore game input mode
+        APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+        if (PlayerController)
+        {
+            FInputModeGameOnly InputMode;
+            PlayerController->SetInputMode(InputMode);
+        }
     }
 }
 
@@ -161,6 +251,12 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (PlayerController)
     {
+        // Restore game input mode BEFORE setting the unit type
+        FInputModeGameOnly InputMode;
+        PlayerController->SetInputMode(InputMode);
+        PlayerController->bShowMouseCursor = true; // Keep cursor visible
+
+        // Now set the selected unit type
         ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
         if (HumanPlayer)
         {
@@ -175,6 +271,10 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
             }
         }
     }
+
+    // Add debug message to confirm selection
+    FString UnitTypeString = (SelectedType == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper");
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Selected unit type: %s"), *UnitTypeString));
 }
 
 // SimulateCoinToss to show the result
@@ -237,12 +337,13 @@ void ATBS_GameMode::ShowCoinTossResult()
     }
 }
 
-// Modify the StartPlacementPhase function to show UI for human player
 void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
 {
-    // Keep existing code
     CurrentPlayer = StartingPlayer;
     CurrentPhase = EGamePhase::SETUP;
+
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("StartPlacementPhase called")); // To check where is the problem
+
 
     // Notify the player it's their turn to place
     if (Players.IsValidIndex(CurrentPlayer))
@@ -253,54 +354,152 @@ void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
 
         // Call the OnPlacement function
-        PlayerInterface->OnPlacement();
+        ITBS_PlayerInterface::Execute_OnPlacement(PlayerActor);
 
         // Show unit selection UI if it's the human player's turn (player 0)
         if (CurrentPlayer == 0)
         {
+            // Add a debug message to verify this is called
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Showing Unit Selection UI"));
+
             ShowUnitSelectionUI();
         }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
+                FString::Printf(TEXT("Not showing UI for player %d"), CurrentPlayer));
+        }
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Player index not valid"));
     }
 }
 
 void ATBS_GameMode::StartGameplayPhase()
 {
-    CurrentPhase = EGamePhase::GAMEPLAY;        // Gameplay phase
+    // Explicitly set the phase to GAMEPLAY
+    CurrentPhase = EGamePhase::GAMEPLAY;
 
-    // Reset to the player who won the coin toss
+    // Reset any placement-related flags
+    UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
+
+    // Debug messages
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green,
+        FString::Printf(TEXT("StartGameplayPhase - Phase set to GAMEPLAY, UnitsPlaced: %d"), UnitsPlaced));
+
+    // Reset all units for new turn
+    TArray<AActor*> AllUnits;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
+
+    for (AActor* Actor : AllUnits)
+    {
+        AUnit* Unit = Cast<AUnit>(Actor);
+        if (Unit)
+        {
+            Unit->ResetTurn();
+        }
+    }
+
+    for (int32 i = 0; i < Players.Num(); i++)
+    {
+        if (i != CurrentPlayer && Players.IsValidIndex(i))
+        {
+            ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(Players[i]);
+            if (PlayerInterface)
+            {
+                // For any player that isn't the current player, explicitly set IsMyTurn to false
+                // This requires adding a new interface method to the player interface
+                if (ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(Players[i]))
+                {
+                    HumanPlayer->IsMyTurn = false;
+                }
+                else if (ATBS_NaiveAI* AIPlayer = Cast<ATBS_NaiveAI>(Players[i]))
+                {
+                    AIPlayer->bIsProcessingTurn = false;
+                }
+            }
+        }
+    }
+
+
+    // Ensure the current player is set correctly
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("First player in GAMEPLAY phase: %d"), CurrentPlayer));
+
+    // Notify the player it's their turn
     if (Players.IsValidIndex(CurrentPlayer))
     {
-        // Reset all units for new turn
-        TArray<AActor*> AllUnits;
-        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
-
-        for (AActor* Actor : AllUnits)
-        {
-            AUnit* Unit = Cast<AUnit>(Actor);
-
-            Unit->ResetTurn();
-
-        }
-
-        // Notify the player it's their turn
         AActor* PlayerActor = Players[CurrentPlayer];
-
-        // Get the interface pointer
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
 
-        // Call the OnTurn function
-        PlayerInterface->OnTurn();
+        if (PlayerInterface)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
+                FString::Printf(TEXT("Calling OnTurn for Player %d"), CurrentPlayer));
+            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+                TEXT("Failed to cast to PlayerInterface"));
+        }
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Invalid player index: %d"), CurrentPlayer));
     }
 }
+//
+//        // Reset all units for new turn
+//        TArray<AActor*> AllUnits;
+//        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
+//
+//        for (AActor* Actor : AllUnits)
+//        {
+//            AUnit* Unit = Cast<AUnit>(Actor);
+//
+//            Unit->ResetTurn();
+//
+//        }
+//
+//        // Notify the player it's their turn
+//        AActor* PlayerActor = Players[CurrentPlayer];
+//
+//        // Get the interface pointer
+//        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+//
+//        // Call the OnTurn function
+//        PlayerInterface->OnTurn();
+//    }
+//}
 
 void ATBS_GameMode::EndTurn()
 {
+    // Let the current player know their turn is ending
+    if (Players.IsValidIndex(CurrentPlayer))
+    {
+        ITBS_PlayerInterface* CurrentPlayerInterface = Cast<ITBS_PlayerInterface>(Players[CurrentPlayer]);
+        if (CurrentPlayerInterface)
+        {
+            // Set current player's turn state to false
+            ITBS_PlayerInterface::Execute_SetTurnState(Players[CurrentPlayer], false);
+        }
+    }
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("EndTurn - Current player was: %d"), CurrentPlayer));
+
     // Skip to next player
     CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("EndTurn - Next player is: %d"), CurrentPlayer));
 
     // Check if the game is over
     if (bIsGameOver)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Game is over, not continuing"));
         return;
     }
 
@@ -321,87 +520,148 @@ void ATBS_GameMode::EndTurn()
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
-
-        // Get the interface pointer
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
 
-        // Call the OnTurn function
-        PlayerInterface->OnTurn();
+        if (PlayerInterface)
+        {
+            // Set new current player's turn state to true
+            ITBS_PlayerInterface::Execute_SetTurnState(PlayerActor, true);
+
+            // Call te OnTurn function
+            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
+        }
     }
 }
 
 bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 PlayerIndex)
 {
+    // Early validation checks
     if (!GameGrid || CurrentPhase != EGamePhase::SETUP || PlayerIndex != CurrentPlayer)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Cannot place unit: Invalid game state. Grid: %s, Phase: %d, PlayerIndex: %d, CurrentPlayer: %d"),
+                GameGrid ? TEXT("Valid") : TEXT("Null"),
+                (int32)CurrentPhase, PlayerIndex, CurrentPlayer));
         return false;
     }
 
-    // Checks if the tile is valid and empty
-    if (!GameGrid->TileMap.Contains(FVector2D(GridX, GridY)))
+    // Debug the current placement state
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("PlaceUnit - Player %d placing %s, BrawlerPlaced: %d, SniperPlaced: %d"),
+            PlayerIndex, (Type == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper"),
+            BrawlerPlaced[PlayerIndex], SniperPlaced[PlayerIndex]));
+
+    // Check if player already placed this unit type
+    if ((Type == EUnitType::BRAWLER && BrawlerPlaced[PlayerIndex]) ||
+        (Type == EUnitType::SNIPER && SniperPlaced[PlayerIndex]))
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("You've already placed a %s unit"),
+                (Type == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper")));
         return false;
     }
 
-    ATile* Tile = GameGrid->TileMap[FVector2D(GridX, GridY)];
+    // Validate tile
+    FVector2D Position(GridX, GridY);
+    if (!GameGrid->TileMap.Contains(Position))
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Invalid tile for unit placement: (%d, %d)"), GridX, GridY));
+        return false;
+    }
+
+    ATile* Tile = GameGrid->TileMap[Position];
     if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Selected tile is not empty. Tile: %s, Status: %d"),
+                Tile ? TEXT("Valid") : TEXT("Null"), Tile ? (int32)Tile->GetTileStatus() : -1));
         return false;
     }
 
-    // Spawns the unit
+    // Spawn unit - ensure both classes are set
+    if (!BrawlerClass || !SniperClass)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Unit class not set. Brawler: %s, Sniper: %s"),
+                BrawlerClass ? TEXT("Valid") : TEXT("Null"),
+                SniperClass ? TEXT("Valid") : TEXT("Null")));
+        return false;
+    }
+
+    // Spawn unit
     AUnit* NewUnit = nullptr;
-    FVector SpawnLocation = Tile->GetActorLocation() + FVector(0, 0, 10.0f); // Spawns the unit slightly above the tiles
+    FVector SpawnLocation = Tile->GetActorLocation() + FVector(0, 0, 10.0f);
 
-    if (Type == EUnitType::BRAWLER && BrawlerClass)
+    NewUnit = GetWorld()->SpawnActor<AUnit>(
+        (Type == EUnitType::BRAWLER) ? BrawlerClass : SniperClass,
+        SpawnLocation,
+        FRotator::ZeroRotator
+    );
+
+    if (!NewUnit)
     {
-        NewUnit = GetWorld()->SpawnActor<AUnit>(BrawlerClass, SpawnLocation, FRotator::ZeroRotator);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            TEXT("Failed to spawn unit"));
+        return false;
     }
-    else if (Type == EUnitType::SNIPER && SniperClass)
+
+    // Initialize unit
+    NewUnit->SetOwnerID(PlayerIndex);
+    NewUnit->InitializePosition(Tile);
+
+    // Debug logging
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        FString::Printf(TEXT("Unit placed - Type: %s, Owner: %d, Position: (%d,%d)"),
+            *NewUnit->GetUnitName(), NewUnit->GetOwnerID(), GridX, GridY));
+
+    // Mark unit type as placed
+    if (Type == EUnitType::BRAWLER)
+        BrawlerPlaced[PlayerIndex] = true;
+    else if (Type == EUnitType::SNIPER)
+        SniperPlaced[PlayerIndex] = true;
+
+    // Increment units placed
+    UnitsPlaced++;
+
+    // Check if all units are placed
+    if (UnitsPlaced >= NumberOfPlayers * UnitsPerPlayer)
     {
-        NewUnit = GetWorld()->SpawnActor<AUnit>(SniperClass, SpawnLocation, FRotator::ZeroRotator);
-    }
-
-    if (NewUnit)
-    {
-        // Set up the unit
-        NewUnit->SetOwner(PlayerIndex);
-        NewUnit->InitializePosition(Tile);
-
-        // Increment units placed
-        UnitsPlaced++;
-
-        // Switch to next player if not the last unit
-        if (UnitsPlaced < NumberOfPlayers * UnitsPerPlayer)
-        {
-            // Switch to the other player if we've placed one unit
-            CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
-
-            if (Players.IsValidIndex(CurrentPlayer))
-            {
-                AActor* PlayerActor = Players[CurrentPlayer];
-
-                // Get the interface pointer
-                ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
-                if (PlayerInterface)
-                {
-                    // Call the OnPlacement function
-                    PlayerInterface->OnPlacement();
-                }
-
-            }
-
-        }
-        else
-        {
-            // All units placed, start gameplay
-            StartGameplayPhase();
-        }
-
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            TEXT("All units placed, starting gameplay phase"));
+        StartGameplayPhase();
         return true;
     }
 
-    return false;
+    // Switch to next player for placement
+    CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("Next player for placement: %d"), CurrentPlayer));
+
+    if (Players.IsValidIndex(CurrentPlayer))
+    {
+        AActor* PlayerActor = Players[CurrentPlayer];
+        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+        if (PlayerInterface)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+                FString::Printf(TEXT("Calling OnPlacement for player %d"), CurrentPlayer));
+            ITBS_PlayerInterface::Execute_OnPlacement(PlayerActor);
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+                TEXT("PlayerInterface cast failed"));
+        }
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("Invalid player index: %d, Players.Num(): %d"),
+                CurrentPlayer, Players.Num()));
+    }
+
+    return true;
 }
 
 bool ATBS_GameMode::CheckGameOver()
@@ -483,12 +743,12 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
                     if (i == PlayerIndex)
                     {
                         // Call the OnWin function
-                        PlayerInterface->OnWin();
+                        ITBS_PlayerInterface::Execute_OnWin(PlayerActor);
                     }
                     else
                     {
                         // Call the OnLose function
-                        PlayerInterface->OnLose();
+                        ITBS_PlayerInterface::Execute_OnLose(PlayerActor);
                     }
                 }
             }
@@ -498,6 +758,13 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
 
 void ATBS_GameMode::SpawnObstacles()
 {
+    // Validate grid existence
+    if (!GameGrid)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot spawn obstacles: Grid is null"));
+        return;
+    }
+
     if (ObstaclePercentage <= 0.0f)
         return;
 
@@ -505,25 +772,44 @@ void ATBS_GameMode::SpawnObstacles()
     int32 TotalCells = GridSize * GridSize;
     int32 ObstaclesToPlace = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
 
+    // Validate grid map
+    if (GameGrid->TileMap.Num() == 0)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot spawn obstacles: TileMap is empty"));
+        return;
+    }
+
     // Simple random placement for now
-    for (int32 i = 0; i < ObstaclesToPlace; i++)
+    int32 PlacedObstacles = 0;
+    int32 MaxAttempts = ObstaclesToPlace * 10; // Prevent infinite loop
+    int32 Attempts = 0;
+
+    while (PlacedObstacles < ObstaclesToPlace && Attempts < MaxAttempts)
     {
         int32 RandomX = FMath::RandRange(0, GridSize - 1);
         int32 RandomY = FMath::RandRange(0, GridSize - 1);
 
-        if (GameGrid->TileMap.Contains(FVector2D(RandomX, RandomY)))
+        // Safely check if the tile exists
+        FVector2D Position(RandomX, RandomY);
+        if (GameGrid->TileMap.Contains(Position))
         {
-            ATile* Tile = GameGrid->TileMap[FVector2D(RandomX, RandomY)];
+            ATile* Tile = GameGrid->TileMap[Position];
+
             if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
             {
                 // Mark as obstacles
-                // For now, we can just make it occupied with a special owner ID
                 Tile->SetTileStatus(-2, ETileStatus::OCCUPIED); // -2 for obstacles
 
-                // Specific mesh or material for obstacles here
+                PlacedObstacles++;
             }
         }
+
+        Attempts++;
     }
+
+    // Log obstacle placement
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("Placed %d obstacles out of %d attempts"), PlacedObstacles, Attempts));
 }
 
 

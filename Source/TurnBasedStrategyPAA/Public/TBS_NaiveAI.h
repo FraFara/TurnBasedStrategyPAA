@@ -9,9 +9,12 @@
 #include "Tile.h"
 #include "TBS_NaiveAI.generated.h"
 
+// Forward declarations
+enum class EUnitColor : uint8;
+
 // Enum for AI actions
-	UENUM(BlueprintType)
-	enum class EAIAction : uint8
+UENUM(BlueprintType)
+enum class EAIAction : uint8
 {
 	NONE        UMETA(DisplayName = "None"),
 	MOVEMENT    UMETA(DisplayName = "Movement"),
@@ -32,6 +35,17 @@ public:
 	UPROPERTY()
 	class UTBS_GameInstance* GameInstance;
 
+	// Player identification properties - moved to public
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
+	int32 PlayerNumber;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
+	EUnitColor UnitColor;
+
+	// Flag to track if AI is currently processing a turn - moved to public
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
+	bool bIsProcessingTurn;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -42,9 +56,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "AI")
 	float MaxActionDelay;
-
-	// Flag to track if AI is currently processing a turn
-	bool bIsProcessingTurn;
 
 	// Handle for the timer that controls the AI's thinking time
 	FTimerHandle ActionTimerHandle;
@@ -95,15 +106,18 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	// PlayerInterface functions - same as in TTT_RandomPlayer and TBS_HumanPlayer
-	virtual void OnTurn() override;
-	virtual void OnWin() override;
-	virtual void OnLose() override;
-	virtual void OnPlacement() override;
+	// Interface implementations
+	virtual void OnPlacement_Implementation() override;
+	virtual void OnTurn_Implementation() override;
+	virtual void OnWin_Implementation() override;
+	virtual void OnLose_Implementation() override;
+	virtual void SetTurnState_Implementation(bool bIsMyTurn) override;
+	virtual void UpdateUI_Implementation() override;
 
 	// Skip method
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void SkipUnitTurn();
+
 	// EndTurn
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void EndTurn();

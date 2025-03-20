@@ -49,7 +49,7 @@ void AUnit::Tick(float DeltaTime)
 
 }
 
-void AUnit::SetOwner(int32 InOwnerID)
+void AUnit::SetOwnerID(int32 InOwnerID)
 {
     OwnerID = InOwnerID;
 }
@@ -122,16 +122,26 @@ void AUnit::InitializePosition(ATile* Tile)
 {
     if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
     {
+        // Debug message
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+            FString::Printf(TEXT("InitializePosition called for %sOwner: %d"), *GetUnitName(), OwnerID));
+
         CurrentTile = Tile;
 
         // Update the tile status
         Tile->SetTileStatus(OwnerID, ETileStatus::OCCUPIED);
 
         // Move the unit to the tile's location
-        SetActorLocation(Tile->GetActorLocation() + FVector(0, 0, 20.0f)); // Offset slightly above the tile
+        SetActorLocation(Tile->GetActorLocation() + FVector(0, 0, 20.0f));
 
         // Tells the tile this unit is occupying it
         Tile->SetOccupyingUnit(this);
+    }
+    else
+    {
+        // Debug message for failure
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            FString::Printf(TEXT("InitializePosition failed - Tile is null or not empty")));
     }
 }
 

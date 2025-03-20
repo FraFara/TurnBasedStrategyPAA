@@ -4,9 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "Unit.h"
 #include "TBS_PlayerInterface.generated.h"
-
 
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
@@ -16,26 +14,34 @@ class UTBS_PlayerInterface : public UInterface
 };
 
 /**
- * 
+ * Player interface used by both human and AI players
  */
 class TURNBASEDSTRATEGYPAA_API ITBS_PlayerInterface
 {
 	GENERATED_BODY()
 
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
+	// Called when the player can place units
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Game")
+	void OnPlacement();
 
-	EUnitColor UnitColor;
-	bool IsHumanTurn = false;
-	int32 PlayerNumber;
+	// Called when the player can take their turn
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Game")
+	void OnTurn();
 
-	// Virtual function to start the turn and show a custom message
-	virtual void OnTurn() {};
-	// Virtual function to show a message when the player win
-	virtual void OnWin() {};
-	// Virtual function to show a message when the player lose "Attackable tiles" in the player interfae
-	virtual void OnLose() {};
-	// Virtual function for placement phase
-	virtual void OnPlacement() {};
+	// Called when the player wins
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Game")
+	void OnWin();
 
+	// Called when the player loses
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Game")
+	void OnLose();
+
+	// New method to explicitly set turn state
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Turn Management")
+	void SetTurnState(bool bIsMyTurn);
+
+	// Method to update UI with current state
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "UI")
+	void UpdateUI();
 };

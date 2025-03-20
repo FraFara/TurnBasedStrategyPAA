@@ -47,7 +47,7 @@ public:
     AUnit();
 
     // Set the unit's owner
-    void SetOwner(int32 InOwnerID);
+    void SetOwnerID(int32 InOwnerID);
 
     // Get unit's name
     UFUNCTION(BlueprintCallable, Category = "Unit")

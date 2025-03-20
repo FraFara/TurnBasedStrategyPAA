@@ -10,6 +10,9 @@
 #include "Camera/CameraComponent.h"
 #include "TBS_HumanPlayer.generated.h"
 
+// Forward declarations
+enum class EUnitColor : uint8;
+
 // Define an enum for player actions
 UENUM(BlueprintType)
 enum class EPlayerAction : uint8
@@ -33,12 +36,20 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UCameraComponent* Camera;
 
+	// Player identification properties - moved to public
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
+	int32 PlayerNumber;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
+	EUnitColor UnitColor;
+
+	// keeps track of turn - moved to public
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
+	bool IsMyTurn = false;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	// keeps track of turn
-	bool IsMyTurn = false;
 
 	// Array of Player's units
 	UPROPERTY()
@@ -63,17 +74,21 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	EPlayerAction CurrentAction;
 
-public:	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	virtual void OnTurn() override;
-	virtual void OnWin() override;
-	virtual void OnLose() override;
-	virtual void OnPlacement() override;
+	// Interface implementations
+	virtual void OnPlacement_Implementation() override;
+	virtual void OnTurn_Implementation() override;
+	virtual void OnWin_Implementation() override;
+	virtual void OnLose_Implementation() override;
+	virtual void SetTurnState_Implementation(bool bIsMyTurn) override;
+	virtual void UpdateUI_Implementation() override;
+
 	void FindMyUnits();
 
 	// Called on left mouse click
@@ -114,5 +129,4 @@ public:
 	//int32 CameraPosition = 0;
 	//// Method to change the camera position
 	//void ChangeCameraPosition();
-
 };

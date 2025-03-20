@@ -59,9 +59,6 @@ public:
 	// Called when an instance of this class is placed (in editor) or spawned
 	virtual void OnConstruction(const FTransform& Transform) override;
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
 
 	//// remove all signs from the grid
 	UFUNCTION(BlueprintCallable)
@@ -69,6 +66,10 @@ protected:
 
 	// generate an empty game grid
 	void GenerateGrid();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
 
 	// return a (x,y) position given a hit (click) on a grid tile
 	FVector2D GetPosition(const FHitResult& Hit);

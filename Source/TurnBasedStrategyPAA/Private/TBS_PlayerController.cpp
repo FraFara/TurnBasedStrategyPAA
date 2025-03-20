@@ -35,9 +35,10 @@ void ATBS_PlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
 
-    // Set up action bindings
+    // Ensure enhanced input is used
     if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent))
     {
+        // Bind actions more explicitly
         EnhancedInputComponent->BindAction(ClickAction, ETriggerEvent::Triggered, this, &ATBS_PlayerController::ClickOnGrid);
         EnhancedInputComponent->BindAction(RightClickAction, ETriggerEvent::Triggered, this, &ATBS_PlayerController::CancelAction);
     }
@@ -45,10 +46,18 @@ void ATBS_PlayerController::SetupInputComponent()
 
 void ATBS_PlayerController::ClickOnGrid()
 {
-    const auto HumanPlayer = Cast<ATBS_HumanPlayer>(GetPawn());
-    if (IsValid(HumanPlayer))
+    // Robust error checking
+    APawn* ControlledPawn = GetPawn();
+    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(ControlledPawn);
+
+    if (HumanPlayer)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Clicking on Grid"));
         HumanPlayer->OnClick();
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to cast to HumanPlayer"));
     }
 }
 
