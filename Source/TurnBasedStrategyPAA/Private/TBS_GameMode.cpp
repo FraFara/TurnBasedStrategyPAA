@@ -7,6 +7,9 @@
 #include "TBS_HumanPlayer.h"
 #include "TBS_NaiveAI.h"
 #include "TBS_PlayerController.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/Button.h"
+#include "Components/TextBlock.h"
 #include "TBS_GameInstance.h"
 #include "TBS_PlayerInterface.h"
 #include "EngineUtils.h"
@@ -124,36 +127,139 @@ void ATBS_GameMode::BeginPlay()
     StartPlacementPhase(StartingPlayer);
 }
 
-// Binary Coin Toss
+void ATBS_GameMode::ShowUnitSelectionUI()
+{
+    if (!UnitSelectionWidgetClass)
+        return;
+
+    // Create the widget if it doesn't exist
+    if (!UnitSelectionWidget)
+    {
+        UnitSelectionWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), UnitSelectionWidgetClass);
+    }
+
+    if (UnitSelectionWidget && !UnitSelectionWidget->IsInViewport())
+    {
+        UnitSelectionWidget->AddToViewport();
+    }
+}
+
+void ATBS_GameMode::HideUnitSelectionUI()
+{
+    if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())
+    {
+        UnitSelectionWidget->RemoveFromParent();
+    }
+}
+
+void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
+{
+    // Hide the selection UI
+    HideUnitSelectionUI();
+
+    // Get the current human player
+    APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+    if (PlayerController)
+    {
+        ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
+        if (HumanPlayer)
+        {
+            // Set the selected unit type
+            if (SelectedType == EUnitType::BRAWLER)
+            {
+                HumanPlayer->SelectBrawlerForPlacement();
+            }
+            else if (SelectedType == EUnitType::SNIPER)
+            {
+                HumanPlayer->SelectSniperForPlacement();
+            }
+        }
+    }
+}
+
+// SimulateCoinToss to show the result
 int32 ATBS_GameMode::SimulateCoinToss()
 {
-    // Randomly determine starting player (0 or 1)
+    // Existing code
     int32 StartingPlayer = FMath::RandRange(0, 1);
 
     // Get game instance and set the starting player message
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        GameInstance->SetStartingPlayerMessage(StartingPlayer);
+    }
 
-    GameInstance->SetStartingPlayerMessage(StartingPlayer);
-
+    // Show the coin toss result
+    ShowCoinTossResult();
 
     return StartingPlayer;
 }
 
-// Placement Phase
+void ATBS_GameMode::ShowCoinTossResult()
+{
+    if (!CoinTossWidgetClass)
+        return;
+
+    // Get the current turn message from the game instance
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (!GameInstance)
+        return;
+
+    FString CoinTossMessage = GameInstance->GetTurnMessage();
+
+    // Display in debug log
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, CoinTossMessage);
+
+    // Create widget to show the result
+    CoinTossWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), CoinTossWidgetClass);
+    if (CoinTossWidget)
+    {
+        CoinTossWidget->AddToViewport();
+
+        // Try to find and update the result text
+        UTextBlock* ResultText = Cast<UTextBlock>(CoinTossWidget->GetWidgetFromName(TEXT("ResultText")));
+        if (ResultText)
+        {
+            ResultText->SetText(FText::FromString(CoinTossMessage));
+        }
+
+        // Auto-remove after a few seconds
+        FTimerHandle TimerHandle;
+        GetWorldTimerManager().SetTimer(TimerHandle, [this]()
+            {
+                if (CoinTossWidget && CoinTossWidget->IsInViewport())
+                {
+                    CoinTossWidget->RemoveFromParent();
+                    CoinTossWidget = nullptr;
+                }
+            }, 3.0f, false);
+    }
+}
+
+// Modify the StartPlacementPhase function to show UI for human player
 void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
 {
+    // Keep existing code
     CurrentPlayer = StartingPlayer;
-    CurrentPhase = EGamePhase::SETUP;       // Setup phase
+    CurrentPhase = EGamePhase::SETUP;
 
-    // Notify the first player it's their turn to place units
+    // Notify the player it's their turn to place
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
 
         // Get the interface pointer
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+
         // Call the OnPlacement function
         PlayerInterface->OnPlacement();
+
+        // Show unit selection UI if it's the human player's turn (player 0)
+        if (CurrentPlayer == 0)
+        {
+            ShowUnitSelectionUI();
+        }
     }
 }
 

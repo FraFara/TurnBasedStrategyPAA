@@ -94,9 +94,17 @@ void ATBS_HumanPlayer::OnPlacement()
 	UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
 	IsMyTurn = true;
 	CurrentAction = EPlayerAction::PLACEMENT;
+
+	// Set message only once
 	GameInstance->SetTurnMessage(TEXT("Place Your Units"));
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Your Turn to Place Units"));
+	// Single debug message without repeat
+	static bool bFirstPlacement = true;
+	if (bFirstPlacement)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Your Turn to Place Units"));
+		bFirstPlacement = false;
+	}
 }
 
 void ATBS_HumanPlayer::FindMyUnits()

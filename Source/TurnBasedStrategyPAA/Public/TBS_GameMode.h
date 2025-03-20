@@ -87,6 +87,34 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Playing Units")
 	int32 UnitsPlaced;
 
+	// UI Widget related functions
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UUserWidget> UnitSelectionWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UUserWidget> CoinTossWidgetClass;
+
+	// Unit Selection functions
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowUnitSelectionUI();
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void HideUnitSelectionUI();
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void OnUnitTypeSelected(EUnitType SelectedType);
+
+	// Coin toss display
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowCoinTossResult();
+
+	// Add these in the private section
+	UPROPERTY()
+	UUserWidget* UnitSelectionWidget;
+
+	UPROPERTY()
+	UUserWidget* CoinTossWidget;
+
 	// Simulate coin toss to determine who starts
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	int32 SimulateCoinToss();
