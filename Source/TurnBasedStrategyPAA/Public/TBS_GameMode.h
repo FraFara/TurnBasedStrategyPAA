@@ -103,7 +103,7 @@ public:
 
 	// Unit Selection functions
 	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowUnitSelectionUI();
+	void ShowUnitSelectionUI(bool bContextAware = false);
 
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void HideUnitSelectionUI();

@@ -153,8 +153,29 @@ void ATBS_GameMode::BeginPlay()
     StartPlacementPhase(StartingPlayer);
 }
 
-void ATBS_GameMode::ShowUnitSelectionUI()
+void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
 {
+    // Ensure we're in the setup phase and the current player is correct
+    if (CurrentPhase != EGamePhase::SETUP || CurrentPlayer != 0)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            TEXT("Cannot show unit selection UI outside of setup phase or when it's not the human player's turn"));
+        return;
+    }
+
+    // Get the human player to check the current placement tile
+    APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+    ATBS_HumanPlayer* HumanPlayer = PlayerController ?
+        Cast<ATBS_HumanPlayer>(PlayerController->GetPawn()) : nullptr;
+
+    // Validate human player and placement tile
+    if (!HumanPlayer || !HumanPlayer->GetCurrentPlacementTile())
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            TEXT("No tile selected for placement or invalid human player"));
+        return;
+    }
+
     // Clear existing widget
     if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())
     {
@@ -165,63 +186,72 @@ void ATBS_GameMode::ShowUnitSelectionUI()
     // Create a new widget instance
     if (UnitSelectionWidgetClass)
     {
-        // Get the player controller
-        APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-        if (PlayerController)
+        // Create the widget with explicit player controller
+        UnitSelectionWidget = CreateWidget<UUserWidget>(PlayerController, UnitSelectionWidgetClass);
+
+        if (UnitSelectionWidget)
         {
-            // Create the widget with explicit player controller
-            UnitSelectionWidget = CreateWidget<UUserWidget>(PlayerController, UnitSelectionWidgetClass);
+            // Add it to viewport with high Z-Order to ensure it's on top
+            UnitSelectionWidget->AddToViewport(100);
 
-            if (UnitSelectionWidget)
+            // Enable input for the player controller
+            FInputModeUIOnly InputMode;
+            InputMode.SetWidgetToFocus(UnitSelectionWidget->TakeWidget());
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            PlayerController->SetInputMode(InputMode);
+            PlayerController->bShowMouseCursor = true;
+
+            // Find buttons
+            UButton* BrawlerButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("BrawlerButton")));
+            UButton* SniperButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("SniperButton")));
+
+            // Validate buttons exist
+            if (!BrawlerButton || !SniperButton)
             {
-                // Add it to viewport with high Z-Order to ensure it's on top
-                UnitSelectionWidget->AddToViewport(100);
+                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+                    TEXT("Failed to find unit selection buttons"));
+                UnitSelectionWidget->RemoveFromParent();
+                UnitSelectionWidget = nullptr;
+                return;
+            }
 
-                // Enable input for the player controller
-                FInputModeUIOnly InputMode;
-                InputMode.SetWidgetToFocus(UnitSelectionWidget->TakeWidget());
-                InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-                PlayerController->SetInputMode(InputMode);
-
-                // Find and update button visibility based on what's already placed
-                UButton* BrawlerButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("BrawlerButton")));
-                UButton* SniperButton = Cast<UButton>(UnitSelectionWidget->GetWidgetFromName(TEXT("SniperButton")));
-                // Update button visibility based on what's been placed
-                if (BrawlerButton && SniperButton)
+            // Hide buttons for already placed units
+            if (bContextAware)
+            {
+                if (BrawlerPlaced[CurrentPlayer])
                 {
-                    if (BrawlerPlaced[CurrentPlayer])
-                    {
-                        // Cast to UWidget first or access as widget
-                        Cast<UWidget>(BrawlerButton)->SetVisibility(ESlateVisibility::Hidden);
-                    }
+                    Cast<UWidget>(BrawlerButton)->SetVisibility(ESlateVisibility::Hidden);
+                }
 
-                    if (SniperPlaced[CurrentPlayer])
-                    {
-                        Cast<UWidget>(SniperButton)->SetVisibility(ESlateVisibility::Hidden);
-                    }
-
-                    // If both are placed, auto-hide the widget
-                    if (BrawlerPlaced[CurrentPlayer] && SniperPlaced[CurrentPlayer])
-                    {
-                        UnitSelectionWidget->RemoveFromParent();
-                        UnitSelectionWidget = nullptr;
-
-                        // Restore game input
-                        PlayerController->SetInputMode(InputMode);
-                    }
+                if (SniperPlaced[CurrentPlayer])
+                {
+                    Cast<UWidget>(SniperButton)->SetVisibility(ESlateVisibility::Hidden);
                 }
             }
-            else
+
+            // If both are placed, hide the widget
+            if (BrawlerPlaced[CurrentPlayer] && SniperPlaced[CurrentPlayer])
             {
-                // Debug message if widget creation failed
-                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to create UnitSelectionWidget"));
+                UnitSelectionWidget->RemoveFromParent();
+                UnitSelectionWidget = nullptr;
+
+                // Restore game input
+                PlayerController->SetInputMode(FInputModeGameOnly());
             }
+
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+                TEXT("Unit selection UI shown successfully"));
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+                TEXT("Failed to create UnitSelectionWidget"));
         }
     }
     else
     {
-        // Debug message if widget class is not set
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("UnitSelectionWidgetClass is not set"));
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            TEXT("UnitSelectionWidgetClass is not set"));
     }
 }
 
@@ -244,37 +274,63 @@ void ATBS_GameMode::HideUnitSelectionUI()
 
 void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
 {
+    // Debug logging
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        FString::Printf(TEXT("OnUnitTypeSelected called with type: %s"),
+            *UEnum::GetValueAsString(SelectedType)));
+
     // Hide the selection UI
     HideUnitSelectionUI();
 
     // Get the current human player
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-    if (PlayerController)
+    if (!PlayerController)
     {
-        // Restore game input mode BEFORE setting the unit type
-        FInputModeGameOnly InputMode;
-        PlayerController->SetInputMode(InputMode);
-        PlayerController->bShowMouseCursor = true; // Keep cursor visible
-
-        // Now set the selected unit type
-        ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
-        if (HumanPlayer)
-        {
-            // Set the selected unit type
-            if (SelectedType == EUnitType::BRAWLER)
-            {
-                HumanPlayer->SelectBrawlerForPlacement();
-            }
-            else if (SelectedType == EUnitType::SNIPER)
-            {
-                HumanPlayer->SelectSniperForPlacement();
-            }
-        }
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
+        return;
     }
 
-    // Add debug message to confirm selection
-    FString UnitTypeString = (SelectedType == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper");
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Selected unit type: %s"), *UnitTypeString));
+    // Cast to human player
+    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
+    if (!HumanPlayer)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to cast to HumanPlayer"));
+        return;
+    }
+
+    // Retrieve the current placement tile from the human player
+    ATile* PlacementTile = HumanPlayer->GetCurrentPlacementTile();
+    if (!PlacementTile)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No tile selected for placement"));
+        return;
+    }
+
+    // Get grid position of the tile
+    FVector2D GridPos = PlacementTile->GetGridPosition();
+
+    // Attempt to place the unit
+    bool Success = PlaceUnit(
+        SelectedType,
+        GridPos.X,
+        GridPos.Y,
+        CurrentPlayer
+    );
+
+    if (Success)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+            FString::Printf(TEXT("Successfully placed %s at (%f, %f)"),
+                *UEnum::GetValueAsString(SelectedType), GridPos.X, GridPos.Y));
+
+        // Clear the placement tile in the human player
+        HumanPlayer->ClearCurrentPlacementTile();
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+            TEXT("Failed to place unit"));
+    }
 }
 
 // SimulateCoinToss to show the result
@@ -479,22 +535,13 @@ void ATBS_GameMode::EndTurn()
     // Let the current player know their turn is ending
     if (Players.IsValidIndex(CurrentPlayer))
     {
-        ITBS_PlayerInterface* CurrentPlayerInterface = Cast<ITBS_PlayerInterface>(Players[CurrentPlayer]);
-        if (CurrentPlayerInterface)
-        {
-            // Set current player's turn state to false
-            ITBS_PlayerInterface::Execute_SetTurnState(Players[CurrentPlayer], false);
-        }
+        ITBS_PlayerInterface::Execute_SetTurnState(Players[CurrentPlayer], false);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            FString::Printf(TEXT("EndTurn - Ending turn for player %d"), CurrentPlayer));
     }
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("EndTurn - Current player was: %d"), CurrentPlayer));
 
     // Skip to next player
     CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("EndTurn - Next player is: %d"), CurrentPlayer));
 
     // Check if the game is over
     if (bIsGameOver)
@@ -503,7 +550,7 @@ void ATBS_GameMode::EndTurn()
         return;
     }
 
-    // Resets all units for the new player's turn
+    // Reset all units for the new player's turn
     TArray<AActor*> AllUnits;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
 
@@ -516,20 +563,17 @@ void ATBS_GameMode::EndTurn()
         }
     }
 
-    // Notify the next player it's their turn
+    // Make sure to notify the new current player
     if (Players.IsValidIndex(CurrentPlayer))
     {
-        AActor* PlayerActor = Players[CurrentPlayer];
-        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+        // Set new current player's turn state to true
+        ITBS_PlayerInterface::Execute_SetTurnState(Players[CurrentPlayer], true);
 
-        if (PlayerInterface)
-        {
-            // Set new current player's turn state to true
-            ITBS_PlayerInterface::Execute_SetTurnState(PlayerActor, true);
+        // Call the OnTurn function
+        ITBS_PlayerInterface::Execute_OnTurn(Players[CurrentPlayer]);
 
-            // Call te OnTurn function
-            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
-        }
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            FString::Printf(TEXT("EndTurn - Starting turn for player %d"), CurrentPlayer));
     }
 }
 
@@ -614,6 +658,28 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
         FString::Printf(TEXT("Unit placed - Type: %s, Owner: %d, Position: (%d,%d)"),
             *NewUnit->GetUnitName(), NewUnit->GetOwnerID(), GridX, GridY));
+
+    // Get game instance to record move history
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        // Format the unit type string
+        FString UnitTypeString = (Type == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
+
+        // Record the placement move
+        GameInstance->AddMoveToHistory(
+            PlayerIndex,
+            UnitTypeString,
+            "Place",
+            FVector2D::ZeroVector,
+            FVector2D(GridX, GridY),
+            0
+        );
+
+        // Additional debug logging
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+            FString::Printf(TEXT("Recorded placement of %s at (%d, %d)"), *UnitTypeString, GridX, GridY));
+    }
 
     // Mark unit type as placed
     if (Type == EUnitType::BRAWLER)

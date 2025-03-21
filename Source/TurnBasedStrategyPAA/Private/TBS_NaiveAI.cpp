@@ -59,19 +59,26 @@ void ATBS_NaiveAI::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void ATBS_NaiveAI::OnTurn_Implementation()
 {
-	// Debug that we received the OnTurn call
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-		TEXT("AI OnTurn called - Starting AI turn"));
-
-	// Get the game mode to verify it's actually our turn
+	// First, explicitly check if it's actually our turn
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-	if (!GameMode || GameMode->CurrentPlayer != PlayerNumber)
+	if (!GameMode)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			FString::Printf(TEXT("AI OnTurn called but not AI's turn! CurrentPlayer: %d, AI: %d"),
-				GameMode ? GameMode->CurrentPlayer : -1, PlayerNumber));
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI: GameMode is null"));
 		return;
 	}
+
+	// Early exit if it's not our turn
+	if (GameMode->CurrentPlayer != PlayerNumber)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			FString::Printf(TEXT("AI OnTurn called but CurrentPlayer=%d, AI PlayerNumber=%d"),
+				GameMode->CurrentPlayer, PlayerNumber));
+		bIsProcessingTurn = false;
+		return;
+	}
+
+	// Only here it's the AI's turn
+	bIsProcessingTurn = true;
 
 	GameInstance->SetTurnMessage(TEXT("AI (Random) Turn"));
 
@@ -92,11 +99,17 @@ void ATBS_NaiveAI::OnTurn_Implementation()
 
 void ATBS_NaiveAI::SetTurnState_Implementation(bool bNewTurnState)
 {
+	// Safely set the turn state
 	bIsProcessingTurn = bNewTurnState;
+
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
 		FString::Printf(TEXT("AI Player turn state changed to: %d"), bIsProcessingTurn ? 1 : 0));
 
-	UpdateUI();
+	// Use Execute_ method to call the UI update
+	if (bNewTurnState)
+	{
+		ITBS_PlayerInterface::Execute_UpdateUI(this);
+	}
 }
 
 void ATBS_NaiveAI::UpdateUI_Implementation()
@@ -107,6 +120,10 @@ void ATBS_NaiveAI::UpdateUI_Implementation()
 	{
 		GameInstance->SetTurnMessage(TEXT("AI's Turn"));
 	}
+
+	// Additional debug logging
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+		FString::Printf(TEXT("UpdateUI called. bIsProcessingTurn: %d"), bIsProcessingTurn ? 1 : 0));
 }
 
 void ATBS_NaiveAI::OnWin_Implementation()

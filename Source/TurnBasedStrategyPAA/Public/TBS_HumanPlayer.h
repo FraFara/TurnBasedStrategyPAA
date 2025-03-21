@@ -63,6 +63,10 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
 	EUnitType UnitToPlace;
 
+	// Tile selected for unit placement
+	UPROPERTY()
+	ATile* CurrentPlacementTile;
+
 	// Currently highlighted tiles
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	TArray<ATile*> HighlightedMovementTiles;
@@ -106,6 +110,15 @@ public:
 	// Spawns new unit on grid
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void PlaceUnit(int32 GridX, int32 GridY, EUnitType Type);
+
+	UFUNCTION(BlueprintCallable, Category = "Unit Placement")
+	void SetCurrentPlacementTile(ATile* Tile);
+
+	UFUNCTION(BlueprintCallable, Category = "Unit Placement")
+	ATile* GetCurrentPlacementTile();
+
+	UFUNCTION(BlueprintCallable, Category = "Unit Placement")
+	void ClearCurrentPlacementTile();
 
 	// Skip the turn for the current unit
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
