@@ -67,6 +67,9 @@ public:
 	// generate an empty game grid
 	void GenerateGrid();
 
+	// return (x,y) position given a relative position
+	FVector2D GetXYPositionByRelativeLocation(const FVector& Location) const;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -80,9 +83,6 @@ protected:
 	// given (x,y) position returns a (x,y,z) position
 	
 	FVector GetRelativeLocationByXYPosition(const int32 InX, const int32 InY) const;
-
-	// return (x,y) position given a relative position
-	FVector2D GetXYPositionByRelativeLocation(const FVector& Location) const;
 
 	// checking if is a valid field position
 	inline bool IsValidPosition(const FVector2D Position) const;

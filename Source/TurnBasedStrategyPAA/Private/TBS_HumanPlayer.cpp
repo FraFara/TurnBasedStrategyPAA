@@ -186,7 +186,7 @@ void ATBS_HumanPlayer::FindMyUnits()
 
 void ATBS_HumanPlayer::OnClick()
 {
-	// Get the game mode to check current phase and turn
+	// Get the game mode for reference
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (!GameMode)
 	{
@@ -199,10 +199,10 @@ void ATBS_HumanPlayer::OnClick()
 		FString::Printf(TEXT("Click - Phase: %d, IsMyTurn: %d, Player: %d, CurrentAction: %d"),
 			(int)GameMode->CurrentPhase, IsMyTurn ? 1 : 0, GameMode->CurrentPlayer, (int)CurrentAction));
 
-	// Get hit result under cursor - SINGLE HIT DETECTION FOR ENTIRE METHOD
+	// Get hit result under cursor using ECC_Visibility instead of ECC_WorldStatic
 	FHitResult Hit;
 	bool bHitSuccessful = GetWorld()->GetFirstPlayerController()->GetHitResultUnderCursor(
-		ECollisionChannel::ECC_WorldStatic, false, Hit);
+		ECollisionChannel::ECC_Visibility, false, Hit);
 
 	if (!bHitSuccessful)
 	{
@@ -210,17 +210,54 @@ void ATBS_HumanPlayer::OnClick()
 		return;
 	}
 
-	if (!Hit.GetActor())
+	// Add detailed debug info about what we hit
+	if (Hit.GetActor())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
+			FString::Printf(TEXT("Hit actor: %s at location: %s"),
+				*Hit.GetActor()->GetName(), *Hit.Location.ToString()));
+	}
+	else
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Hit actor is null"));
 		return;
 	}
 
-	// Cast to tile and validate
-	ATile* ClickedTile = Cast<ATile>(Hit.GetActor());
+	// Try to get the grid from GameMode
+	AGrid* Grid = GameMode->GameGrid;
+	if (!Grid)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Grid is null"));
+		return;
+	}
+
+	// Convert hit location to grid position
+	FVector2D GridPos = Grid->GetXYPositionByRelativeLocation(Hit.Location);
+	int32 GridX = FMath::FloorToInt(GridPos.X);
+	int32 GridY = FMath::FloorToInt(GridPos.Y);
+
+	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
+		FString::Printf(TEXT("Grid position: X=%d, Y=%d"), GridX, GridY));
+
+	// Check if grid position is valid
+	if (GridX < 0 || GridX >= Grid->Size || GridY < 0 || GridY >= Grid->Size)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Grid position out of bounds"));
+		return;
+	}
+
+	// Get the tile at this grid position
+	FVector2D TilePos(GridX, GridY);
+	if (!Grid->TileMap.Contains(TilePos))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No tile at this grid position"));
+		return;
+	}
+
+	ATile* ClickedTile = Grid->TileMap[TilePos];
 	if (!ClickedTile)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Selected object is not a valid tile"));
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Tile at this position is null"));
 		return;
 	}
 
