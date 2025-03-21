@@ -6,6 +6,7 @@
 // Sets default values
 ATile::ATile()
 {
+
     // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
     PrimaryActorTick.bCanEverTick = false;
 
@@ -16,6 +17,9 @@ ATile::ATile()
     // every actor has a RootComponent that defines the transform in the World
     SetRootComponent(Scene);
     StaticMeshComponent->SetupAttachment(Scene);
+
+    // Set the StaticMeshComponent to be at the origin of the Scene component
+    StaticMeshComponent->SetRelativeLocation(FVector::ZeroVector);
 
     // Enable proper collision for the static mesh component
     StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);

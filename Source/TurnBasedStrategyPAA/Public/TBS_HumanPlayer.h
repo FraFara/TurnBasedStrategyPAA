@@ -132,6 +132,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void ResetActionState();
 
+	// Check if all units have completed their actions
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void CheckAllUnitsFinished();
+
 	// End the player's turn
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void EndTurn();

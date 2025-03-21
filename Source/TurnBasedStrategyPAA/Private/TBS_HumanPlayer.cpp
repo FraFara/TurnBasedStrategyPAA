@@ -406,6 +406,8 @@ void ATBS_HumanPlayer::OnClick()
 						else
 						{
 							SelectedUnit = nullptr;
+							// Check if all units have completed their actions
+							CheckAllUnitsFinished();
 						}
 					}
 				}
@@ -443,6 +445,9 @@ void ATBS_HumanPlayer::OnClick()
 
 				ClearHighlightedTiles();
 				SelectedUnit = nullptr;
+
+				// Check if all units have completed their actions
+				CheckAllUnitsFinished();
 			}
 			break;
 		}
@@ -507,6 +512,9 @@ void ATBS_HumanPlayer::SkipUnitTurn()
 
 		// Clears the selection
 		SelectedUnit = nullptr;
+
+		// Check if all units have completed their actions
+		CheckAllUnitsFinished();
 	}
 }
 
@@ -514,6 +522,39 @@ void ATBS_HumanPlayer::ResetActionState()
 {
 	CurrentAction = EPlayerAction::NONE;
 	ClearCurrentPlacementTile();
+}
+
+void ATBS_HumanPlayer::CheckAllUnitsFinished()
+{
+	// Make sure we have the latest list of units
+	FindMyUnits();
+
+	bool allFinished = true;
+	for (AUnit* Unit : MyUnits)
+	{
+		if (!Unit->HasMoved() || !Unit->HasAttacked())
+		{
+			allFinished = false;
+			break;
+		}
+	}
+
+	if (allFinished && MyUnits.Num() > 0)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("All units have finished their actions - ending turn"));
+
+		// Get the game mode and end turn
+		ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+		if (GameMode)
+		{
+			// End turn with a slight delay to allow messages to be read
+			FTimerHandle TimerHandle;
+			GetWorldTimerManager().SetTimer(TimerHandle, [this, GameMode]()
+				{
+					GameMode->EndTurn();
+				}, 1.0f, false);
+		}
+	}
 }
 
 void ATBS_HumanPlayer::SetTurnState_Implementation(bool bNewTurnState)
