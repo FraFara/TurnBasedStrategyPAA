@@ -6,22 +6,29 @@
 // Sets default values
 ATile::ATile()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+    PrimaryActorTick.bCanEverTick = false;
 
-	// template function that creates a components
-	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Scene"));
-	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
+    // template function that creates a components
+    Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Scene"));
+    StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 
-	// every actor has a RootComponent that defines the transform in the World
-	SetRootComponent(Scene);
-	StaticMeshComponent->SetupAttachment(Scene);
+    // every actor has a RootComponent that defines the transform in the World
+    SetRootComponent(Scene);
+    StaticMeshComponent->SetupAttachment(Scene);
 
-	Status = ETileStatus::EMPTY;
-	PlayerOwner = -1;
-	TileGridPosition = FVector2D(0, 0);
+    // Enable proper collision for the static mesh component
+    StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    StaticMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+    StaticMeshComponent->SetCollisionObjectType(ECC_WorldStatic);
 
+    // Make sure the mesh is visible and can be clicked
+    StaticMeshComponent->SetVisibility(true);
+    StaticMeshComponent->bSelectable = true;
 
+    Status = ETileStatus::EMPTY;
+    PlayerOwner = -1;
+    TileGridPosition = FVector2D(0, 0);
 }
 
 void ATile::SetTileStatus(const int32 TileOwner, const ETileStatus TileStatus)

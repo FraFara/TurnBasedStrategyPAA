@@ -315,21 +315,21 @@ void ATBS_HumanPlayer::OnClick()
 			return;
 		}
 
-		// Add explicit debug about the tile we clicked
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("Clicked on tile at (%f, %f), Status: %d"),
-				ClickedTile->GetGridPosition().X, ClickedTile->GetGridPosition().Y,
-				(int32)ClickedTile->GetTileStatus()));
-
 		// Get the unit on the tile
 		AUnit* UnitOnTile = ClickedTile->GetOccupyingUnit();
 
-		// Debug unit info
+		// Enhanced debug
 		if (UnitOnTile)
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-				FString::Printf(TEXT("Tile contains unit: %s, Owner: %d"),
-					*UnitOnTile->GetUnitName(), UnitOnTile->GetOwnerID()));
+				FString::Printf(TEXT("Tile contains unit: %s, Owner: %d, Health: %d/%d"),
+					*UnitOnTile->GetUnitName(), UnitOnTile->GetOwnerID(),
+					UnitOnTile->GetUnitHealth(), UnitOnTile->GetMaxHealth()));
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+				TEXT("Clicked on empty tile"));
 		}
 
 		// Gameplay action logic
@@ -337,27 +337,34 @@ void ATBS_HumanPlayer::OnClick()
 		{
 		case EPlayerAction::NONE:
 			// Unit selection logic
-			if (UnitOnTile && UnitOnTile->GetOwnerID() == PlayerNumber)
+			if (UnitOnTile)
 			{
-				// Debug unit info
+				// Log player comparing to ensure ownership check is correct
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-					FString::Printf(TEXT("Clicked on unit - Type: %s, HP: %d/%d"),
-						*UnitOnTile->GetUnitName(),
-						UnitOnTile->GetUnitHealth(),
-						UnitOnTile->GetMaxHealth()));
+					FString::Printf(TEXT("Unit owner: %d, Your player number: %d"),
+						UnitOnTile->GetOwnerID(), PlayerNumber));
 
-				// Update selected unit
-				if (SelectedUnit == UnitOnTile)
+				// Unit selection logic - ensure ownership check is correct
+				if (UnitOnTile->GetOwnerID() == PlayerNumber)
 				{
-					// Deselect if already selected
-					SelectedUnit = nullptr;
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Unit deselected"));
+					// Update selected unit
+					if (SelectedUnit == UnitOnTile)
+					{
+						// Deselect if already selected
+						SelectedUnit = nullptr;
+						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Unit deselected"));
+					}
+					else
+					{
+						SelectedUnit = UnitOnTile;
+						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+							FString::Printf(TEXT("Unit selected: %s"), *UnitOnTile->GetUnitName()));
+					}
 				}
 				else
 				{
-					SelectedUnit = UnitOnTile;
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-						FString::Printf(TEXT("Unit selected: %s"), *UnitOnTile->GetUnitName()));
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+						TEXT("Cannot select enemy unit!"));
 				}
 			}
 			break;
@@ -597,19 +604,43 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 	// Clear any previous highlights
 	ClearHighlightedTiles();
 
-	// Ensure a unit is selected and can move
-	if (!SelectedUnit || SelectedUnit->HasMoved())
+	// Enhanced debug for selected unit
+	if (!SelectedUnit)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("Cannot highlight movement tiles. No unit selected or unit has already moved."));
+			TEXT("Cannot highlight movement tiles: No unit selected!"));
 		return;
 	}
+
+	if (SelectedUnit->HasMoved())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			TEXT("This unit has already moved this turn!"));
+		return;
+	}
+
+	// Debug selected unit info
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+		FString::Printf(TEXT("Selected Unit: %s, Owner: %d, Location: (%f,%f)"),
+			*SelectedUnit->GetUnitName(),
+			SelectedUnit->GetOwnerID(),
+			SelectedUnit->GetCurrentTile()->GetGridPosition().X,
+			SelectedUnit->GetCurrentTile()->GetGridPosition().Y));
 
 	// Get and highlight movement tiles
 	HighlightedMovementTiles = SelectedUnit->GetMovementTiles();
 
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
 		FString::Printf(TEXT("Found %d movement tiles"), HighlightedMovementTiles.Num()));
+
+	// For each movement tile, print its position
+	for (ATile* Tile : HighlightedMovementTiles)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan,
+			FString::Printf(TEXT("Move Tile: (%f,%f)"),
+				Tile->GetGridPosition().X,
+				Tile->GetGridPosition().Y));
+	}
 
 	CurrentAction = EPlayerAction::MOVEMENT;
 }
@@ -620,15 +651,29 @@ void ATBS_HumanPlayer::HighlightAttackTiles()
 	ClearHighlightedTiles();
 
 	// Ensure a unit is selected and can attack
-	if (!SelectedUnit || SelectedUnit->HasAttacked())
+	if (!SelectedUnit)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("Cannot highlight attack tiles. No unit selected or unit has already attacked."));
+			TEXT("Cannot highlight attack tiles. No unit selected."));
 		return;
 	}
 
+	if (SelectedUnit->HasAttacked())
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			TEXT("This unit has already attacked this turn!"));
+		return;
+	}
+
+	// Debug selected unit info
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Selected Unit: %s, Owner: %d, Location: (%f,%f)"),
+			*SelectedUnit->GetUnitName(), 
+			SelectedUnit->GetOwnerID(), 
+			SelectedUnit->GetCurrentTile()->GetGridPosition().X, 
+			SelectedUnit->GetCurrentTile()->GetGridPosition().Y)); 
+
 	// Get and highlight attack tiles
-	HighlightedAttackTiles = SelectedUnit->GetAttackTiles();
+	HighlightedAttackTiles = SelectedUnit->GetAttackTiles(); 
 
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
 		FString::Printf(TEXT("Found %d attack tiles"), HighlightedAttackTiles.Num()));
