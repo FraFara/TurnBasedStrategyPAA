@@ -393,6 +393,13 @@ void ATBS_GameMode::ShowCoinTossResult()
     }
 }
 
+void ATBS_GameMode::DebugForceGameplay()
+{
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("FORCING GAMEPLAY PHASE START"));
+    UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
+    StartGameplayPhase();
+}
+
 void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
 {
     CurrentPlayer = StartingPlayer;
@@ -437,12 +444,38 @@ void ATBS_GameMode::StartGameplayPhase()
     // Explicitly set the phase to GAMEPLAY
     CurrentPhase = EGamePhase::GAMEPLAY;
 
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        TEXT("GAMEPLAY PHASE STARTED"));
+
     // Reset any placement-related flags
     UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
 
-    // Debug messages
-    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green,
-        FString::Printf(TEXT("StartGameplayPhase - Phase set to GAMEPLAY, UnitsPlaced: %d"), UnitsPlaced));
+    // IMPORTANT: Reset all placement flags to avoid any confusion
+    for (int32 i = 0; i < BrawlerPlaced.Num(); i++)
+    {
+        BrawlerPlaced[i] = true;
+        SniperPlaced[i] = true;
+    }
+
+    // Clear any UI widgets that might be causing interference
+    if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())
+    {
+        UnitSelectionWidget->RemoveFromParent();
+        UnitSelectionWidget = nullptr;
+    }
+
+    // THIS IS IMPORTANT: Reset player actions state
+    for (AActor* PlayerActor : Players)
+    {
+        if (ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerActor))
+        {
+            HumanPlayer->ResetActionState();
+        }
+        else if (ATBS_NaiveAI* AIPlayer = Cast<ATBS_NaiveAI>(PlayerActor))
+        {
+            AIPlayer->ResetActionState();
+        }
+    }
 
     // Reset all units for new turn
     TArray<AActor*> AllUnits;
@@ -454,58 +487,56 @@ void ATBS_GameMode::StartGameplayPhase()
         if (Unit)
         {
             Unit->ResetTurn();
+            GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Cyan,
+                FString::Printf(TEXT("Reset unit: %s (Owner: %d)"),
+                    *Unit->GetUnitName(), Unit->GetOwnerID()));
         }
     }
 
+    // Ensure proper input mode for the player controller
+    APlayerController* PC = GetWorld()->GetFirstPlayerController();
+    if (PC)
+    {
+        ATBS_PlayerController* TBS_PC = Cast<ATBS_PlayerController>(PC);
+        if (TBS_PC)
+        {
+            TBS_PC->SetGameInputMode();
+        }
+    }
+
+    // Set turn states explicitly for all players
     for (int32 i = 0; i < Players.Num(); i++)
     {
-        if (i != CurrentPlayer && Players.IsValidIndex(i))
+        if (Players.IsValidIndex(i))
         {
-            ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(Players[i]);
-            if (PlayerInterface)
-            {
-                // For any player that isn't the current player, explicitly set IsMyTurn to false
-                // This requires adding a new interface method to the player interface
-                if (ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(Players[i]))
-                {
-                    HumanPlayer->IsMyTurn = false;
-                }
-                else if (ATBS_NaiveAI* AIPlayer = Cast<ATBS_NaiveAI>(Players[i]))
-                {
-                    AIPlayer->bIsProcessingTurn = false;
-                }
-            }
+            // Only the current player gets turn set to true
+            bool bIsCurrentPlayer = (i == CurrentPlayer);
+            ITBS_PlayerInterface::Execute_SetTurnState(Players[i], bIsCurrentPlayer);
+
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+                FString::Printf(TEXT("Player %d turn state set to: %s"),
+                    i, bIsCurrentPlayer ? TEXT("TRUE") : TEXT("FALSE")));
         }
     }
-
 
     // Ensure the current player is set correctly
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, FString::Printf(TEXT("First player in GAMEPLAY phase: %d"), CurrentPlayer));
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
+        FString::Printf(TEXT("First player in GAMEPLAY phase: %d"), CurrentPlayer));
 
-    // Notify the player it's their turn
-    if (Players.IsValidIndex(CurrentPlayer))
-    {
-        AActor* PlayerActor = Players[CurrentPlayer];
-        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
+    // Notify the player it's their turn (with delay to ensure everything is set up)
+    FTimerHandle TurnStartTimerHandle;
+    GetWorldTimerManager().SetTimer(TurnStartTimerHandle, [this]()
+        {
+            if (Players.IsValidIndex(CurrentPlayer))
+            {
+                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+                    FString::Printf(TEXT("Starting turn for Player %d"), CurrentPlayer));
 
-        if (PlayerInterface)
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-                FString::Printf(TEXT("Calling OnTurn for Player %d"), CurrentPlayer));
-            ITBS_PlayerInterface::Execute_OnTurn(PlayerActor);
-        }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-                TEXT("Failed to cast to PlayerInterface"));
-        }
-    }
-    else
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Invalid player index: %d"), CurrentPlayer));
-    }
+                ITBS_PlayerInterface::Execute_OnTurn(Players[CurrentPlayer]);
+            }
+        }, 0.5f, false);
 }
+
 //
 //        // Reset all units for new turn
 //        TArray<AActor*> AllUnits;
@@ -690,12 +721,23 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     // Increment units placed
     UnitsPlaced++;
 
+    // Debug the units placed count
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("Units placed: %d of %d"), UnitsPlaced, NumberOfPlayers * UnitsPerPlayer));
+
     // Check if all units are placed
     if (UnitsPlaced >= NumberOfPlayers * UnitsPerPlayer)
     {
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
             TEXT("All units placed, starting gameplay phase"));
-        StartGameplayPhase();
+
+        // IMPORTANT: Add a delay before starting gameplay phase
+        FTimerHandle GameplayTimerHandle;
+        GetWorldTimerManager().SetTimer(GameplayTimerHandle, [this]()
+            {
+                StartGameplayPhase();
+            }, 1.0f, false);
+
         return true;
     }
 

@@ -47,9 +47,18 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
 	bool IsMyTurn = false;
 
+	// Current action
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
+	EPlayerAction CurrentAction;
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// Game instance reference
+	UPROPERTY()
+	class UTBS_GameInstance* GameInstance;
 
 	// Array of Player's units
 	UPROPERTY()
@@ -73,10 +82,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	TArray<ATile*> HighlightedAttackTiles;
-
-	// Current action
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
-	EPlayerAction CurrentAction;
 
 public:
 	// Called every frame
@@ -123,6 +128,9 @@ public:
 	// Skip the turn for the current unit
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void SkipUnitTurn();
+
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void ResetActionState();
 
 	// End the player's turn
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")

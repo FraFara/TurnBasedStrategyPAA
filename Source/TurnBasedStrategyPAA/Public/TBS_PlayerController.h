@@ -31,6 +31,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
     UInputAction* RightClickAction;
 
+    void SetGameInputMode();
+
     // Called when clicking on the grid
     void ClickOnGrid();
 

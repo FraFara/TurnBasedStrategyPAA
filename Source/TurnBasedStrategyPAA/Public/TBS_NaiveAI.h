@@ -46,6 +46,10 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
 	bool bIsProcessingTurn;
 
+	// Current AI action
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
+	EAIAction CurrentAction;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -63,10 +67,6 @@ protected:
 	// Reference to the grid
 	UPROPERTY()
 	class AGrid* Grid;
-
-	// Current AI action
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
-	EAIAction CurrentAction;
 
 	// Current unit being controlled by AI
 	UPROPERTY()
@@ -117,6 +117,9 @@ public:
 	// Skip method
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void SkipUnitTurn();
+
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void ResetActionState();
 
 	// EndTurn
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")

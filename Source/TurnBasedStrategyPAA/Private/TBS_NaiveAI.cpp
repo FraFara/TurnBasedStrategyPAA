@@ -490,6 +490,11 @@ void ATBS_NaiveAI::SkipUnitTurn()
 	}
 }
 
+void ATBS_NaiveAI::ResetActionState()
+{
+	CurrentAction = EAIAction::NONE;
+}
+
 void ATBS_NaiveAI::EndTurn()
 {
 	// End our turn via the GameMode 

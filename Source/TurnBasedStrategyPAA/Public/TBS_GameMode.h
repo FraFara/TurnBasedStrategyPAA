@@ -115,6 +115,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowCoinTossResult();
 
+	// Force transition to gameplay
+	UFUNCTION(Exec, BlueprintCallable, Category = "Debug")
+	void DebugForceGameplay();
+
 	// Add these in the private section
 	UPROPERTY()
 	UUserWidget* UnitSelectionWidget;
