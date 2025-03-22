@@ -149,6 +149,9 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
     bool bHasAttacked;
 
+    UFUNCTION(BlueprintCallable, Category = "Unit Appearance")
+    virtual void UpdateAppearanceByTeam();
+
 
 protected:
     // Called when the game starts or when spawned

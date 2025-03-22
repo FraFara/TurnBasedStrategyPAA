@@ -37,6 +37,10 @@ AUnit::AUnit()
     CurrentTile = nullptr;
 }
 
+void AUnit::UpdateAppearanceByTeam()
+{
+}
+
 // Called when the game starts or when spawned
 void AUnit::BeginPlay()
 {
@@ -62,6 +66,9 @@ void AUnit::Tick(float DeltaTime)
 void AUnit::SetOwnerID(int32 InOwnerID)
 {
     OwnerID = InOwnerID;
+
+    // Update visual appearance based on team
+    UpdateAppearanceByTeam();
 }
 
 FString AUnit::GetUnitName() const
