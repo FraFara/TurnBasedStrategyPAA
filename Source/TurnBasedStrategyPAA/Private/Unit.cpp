@@ -111,7 +111,7 @@ FString AUnit::GetLiveHealth()
 
 float AUnit::GethealthPercentage()
 {
-    float HealthPercentage = 100.0 / (Health / MaxHealth);
+    float HealthPercentage = (static_cast<float>(Health) / MaxHealth);
 
     return HealthPercentage;
 }
