@@ -141,7 +141,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Unit")
     bool HasAttacked() const;
 
-        // Has moved this turn
+    // Has moved this turn
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Unit State")
     bool bHasMoved;
 

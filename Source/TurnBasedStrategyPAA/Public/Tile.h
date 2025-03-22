@@ -46,6 +46,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tile")
 	AUnit* GetOccupyingUnit();
 
+	//Needed to add a mesh to the "Tile"
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UStaticMeshComponent* StaticMeshComponent;
+
+	// Called to Highlight movement and attack tiles
+	void SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial);
+
+	void ClearHighlight();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -53,10 +62,6 @@ protected:
 	// To add visuals to the scene
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USceneComponent* Scene;
-
-	//Needed to add a mesh to the "Tile"
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UStaticMeshComponent* StaticMeshComponent;
 
 	//Status of the tile
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -73,6 +78,9 @@ protected:
 	// Pointer to occupying unit
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	AUnit* OccupyingUnit;
+
+	UMaterialInterface* OriginalMaterial;
+	bool bIsHighlighted;
 
 	//public:	
 	//	// Called every frame

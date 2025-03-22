@@ -101,7 +101,7 @@ int32 AUnit::GetMaxDamage() const
 
 float AUnit::GetAverageAttackDamage() const
 {
-    return ((static_cast<float>(MinDamage) + static_cast<float>(MaxDamage))/2.f);
+    return ((static_cast<float>(MinDamage) + static_cast<float>(MaxDamage)) / 2.f);
 }
 
 FString AUnit::GetLiveHealth()
@@ -156,8 +156,8 @@ bool AUnit::MoveToTile(ATile* Tile)
         return false;
 
     // Updates the old tile
-        CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
-        CurrentTile->SetOccupyingUnit(nullptr); // Clear the old tile's occupying unit
+    CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+    CurrentTile->SetOccupyingUnit(nullptr); // Clear the old tile's occupying unit
 
     // Update the new tile
     CurrentTile = Tile;
@@ -179,7 +179,7 @@ TArray<ATile*> AUnit::GetMovementTiles()
     if (!CurrentTile || !Grid) // Checks if the unit has a current tile and if the grid exists
         return ValidTiles;
 
-    FVector2D CurrentPos = CurrentTile->GetGridPosition(); 
+    FVector2D CurrentPos = CurrentTile->GetGridPosition();
 
     // Algorithm BFS to find valid movement tiles
     TArray<ATile*> Queue;
@@ -332,10 +332,10 @@ void AUnit::ReceiveDamage(int32 DamageAmount)
 
     // If health reaches 0, unit dies
     if (Health <= 0)
-    { 
+    {
         CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
         CurrentTile->SetOccupyingUnit(nullptr); // Clear the tile's unit reference
-        
+
         Destroy();
     }
 }

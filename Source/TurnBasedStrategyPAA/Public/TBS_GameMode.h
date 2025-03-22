@@ -73,7 +73,7 @@ public:
 
 	// Obstacles percentage
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Game Rules") // implementare un limite?
-	float ObstaclePercentage;
+		float ObstaclePercentage;
 
 	// Types of units
 	UPROPERTY(EditDefaultsOnly, Category = "Playing Units")

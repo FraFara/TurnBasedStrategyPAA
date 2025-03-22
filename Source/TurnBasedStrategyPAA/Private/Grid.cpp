@@ -99,9 +99,28 @@ FVector AGrid::GetRelativeLocationByXYPosition(const int32 InX, const int32 InY)
 
 FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 {
-	const double XPos = Location.X / (TileSize * NextCellPositionMultiplier);
-	const double YPos = Location.Y / (TileSize * NextCellPositionMultiplier);
-	return FVector2D(XPos, YPos);
+	// Debug the input location
+	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
+		FString::Printf(TEXT("Converting world location: X=%.2f, Y=%.2f"), Location.X, Location.Y));
+
+	// Calculate the exact grid position 
+	const float XPos = Location.X / (TileSize * NextCellPositionMultiplier);
+	const float YPos = Location.Y / (TileSize * NextCellPositionMultiplier);
+
+	// Get the integer part (grid coordinate)
+	const int32 GridX = FMath::FloorToInt(XPos);
+	const int32 GridY = FMath::FloorToInt(YPos);
+
+	// Calculate the fractional part (position within tile)
+	const float FractX = XPos - GridX;
+	const float FractY = YPos - GridY;
+
+	// Debug the conversion
+	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
+		FString::Printf(TEXT("Converted to grid pos: X=%d (%.2f), Y=%d (%.2f)"),
+			GridX, FractX, GridY, FractY));
+
+	return FVector2D(GridX, GridY);
 }
 
 //returns true if the tile is in the grid

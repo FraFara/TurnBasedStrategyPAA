@@ -30,51 +30,81 @@ ATile::ATile()
     StaticMeshComponent->SetVisibility(true);
     StaticMeshComponent->bSelectable = true;
 
-    Status = ETileStatus::EMPTY;
+       Status = ETileStatus::EMPTY;
     PlayerOwner = -1;
     TileGridPosition = FVector2D(0, 0);
+    
+    // Initialize the new variables
+    OriginalMaterial = nullptr;
+    bIsHighlighted = false;
 }
 
 void ATile::SetTileStatus(const int32 TileOwner, const ETileStatus TileStatus)
 {
-	PlayerOwner = TileOwner;
-	Status = TileStatus;
+    PlayerOwner = TileOwner;
+    Status = TileStatus;
 }
 
 ETileStatus ATile::GetTileStatus()
 {
-	return Status;
+    return Status;
 }
 
 int32 ATile::GetOwner()
 {
-	return PlayerOwner;
+    return PlayerOwner;
 }
 
 void ATile::SetGridPosition(const double InX, const double InY)
 {
-	TileGridPosition.Set(InX, InY);
+    TileGridPosition.Set(InX, InY);
 }
 
 FVector2D ATile::GetGridPosition()
 {
-	return TileGridPosition;
+    return TileGridPosition;
 }
 
 void ATile::SetOccupyingUnit(AUnit* Unit)
 {
-	OccupyingUnit = Unit;
+    OccupyingUnit = Unit;
 }
 
 AUnit* ATile::GetOccupyingUnit()
 {
-	return OccupyingUnit;
+    return OccupyingUnit;
+}
+
+void ATile::SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial)
+{
+    // Store the original material the first time we highlight
+    if (!OriginalMaterial && StaticMeshComponent)
+    {
+        OriginalMaterial = StaticMeshComponent->GetMaterial(0);
+    }
+
+    // Apply the highlight material
+    if (StaticMeshComponent && HighlightMaterial)
+    {
+        StaticMeshComponent->SetMaterial(0, HighlightMaterial);
+        this->bIsHighlighted = bHighlighted; // Use 'this->' to clarify we're using the class member
+    }
+}
+
+void ATile::ClearHighlight()
+{
+    // Restore the original material
+    if (StaticMeshComponent && OriginalMaterial)
+    {
+        StaticMeshComponent->SetMaterial(0, OriginalMaterial);
+        this->bIsHighlighted = false;
+    }
 }
 
 // Called when the game starts or when spawned
 void ATile::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
 
 }
 
@@ -84,4 +114,3 @@ void ATile::BeginPlay()
 //	Super::Tick(DeltaTime);
 //
 //}
-

@@ -83,6 +83,13 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	TArray<ATile*> HighlightedAttackTiles;
 
+	// Highlight materials
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials", meta = (AllowPrivateAccess = "true"))
+	UMaterialInterface* MovementHighlightMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Materials", meta = (AllowPrivateAccess = "true"))
+	UMaterialInterface* AttackHighlightMaterial;
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;

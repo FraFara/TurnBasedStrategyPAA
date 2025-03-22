@@ -175,18 +175,13 @@ void ATBS_NaiveAI::FindMyUnits()
 
 void ATBS_NaiveAI::ProcessPlacementAction()
 {
-	// Get the game mode to check what's been placed
+	// Get the game mode
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (!GameMode)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI: GameMode is null"));
 		return;
 	}
-
-	// Add debug messages
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI Placement - Player: %d, BrawlerPlaced: %d, SniperPlaced: %d"),
-			PlayerNumber, GameMode->BrawlerPlaced[PlayerNumber], GameMode->SniperPlaced[PlayerNumber]));
 
 	// Verify it's AI's turn
 	if (GameMode->CurrentPlayer != PlayerNumber)
@@ -210,57 +205,118 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		AvailableTypes.Add(EUnitType::SNIPER);
 	}
 
-	// Add more debug messages
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI Placement - Available types: %d"), AvailableTypes.Num()));
-
-	// If no unit types are available, return
+	// If no unit types are available, end processing
 	if (AvailableTypes.Num() == 0)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI Placement - No available unit types"));
+		CurrentAction = EAIAction::NONE;
+		bIsProcessingTurn = false;
 		return;
 	}
 
-	// Randomly select from available unit types
-	int32 RandomIndex = FMath::RandRange(0, AvailableTypes.Num() - 1);
-	EUnitType TypeToPlace = AvailableTypes[RandomIndex];
+	// Try to place a unit with multiple attempts
+	int32 MaxPlacementAttempts = 5;
+	bool Success = false;
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI Placement - Selected unit type: %s"),
-			(TypeToPlace == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper")));
-
-	// Find random empty tile to place the unit
-	int32 GridX, GridY;
-	if (PickRandomTileForPlacement(GridX, GridY))
+	for (int32 Attempt = 0; Attempt < MaxPlacementAttempts && !Success; Attempt++)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("AI Placement - Selected position: (%d,%d)"), GridX, GridY));
+		// Randomly select from available unit types
+		int32 RandomIndex = FMath::RandRange(0, AvailableTypes.Num() - 1);
+		EUnitType TypeToPlace = AvailableTypes[RandomIndex];
 
-		// Place the unit using the GameMode
-		bool Success = GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
-
-		if (Success)
+		// Find random empty tile to place the unit
+		int32 GridX, GridY;
+		if (PickRandomTileForPlacement(GridX, GridY))
 		{
-			// Record move in game instance
-			FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
-			GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place", FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+				FString::Printf(TEXT("AI Placement - Attempt %d: Selected position: (%d,%d)"),
+					Attempt + 1, GridX, GridY));
 
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-				FString::Printf(TEXT("AI Placement - Successfully placed %s at (%d,%d)"),
-					*UnitTypeString, GridX, GridY));
+			// Try to place the unit
+			Success = GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
+
+			if (Success)
+			{
+				// Record move in game instance
+				FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
+				if (GameInstance)
+				{
+					GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place",
+						FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
+				}
+
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+					FString::Printf(TEXT("AI Placement - Successfully placed %s at (%d,%d)"),
+						*UnitTypeString, GridX, GridY));
+				break;
+			}
+			else
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+					FString::Printf(TEXT("AI Placement - Failed to place unit at (%d,%d), trying again..."),
+						GridX, GridY));
+			}
 		}
 		else
 		{
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				TEXT("AI Placement - Failed to place unit"));
+				TEXT("AI Placement - Could not find empty tile for attempt"));
 		}
 	}
-	else
+
+	// If we still failed after all attempts, we need to handle this gracefully
+	if (!Success)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("AI Placement - Could not find empty tile"));
+			TEXT("AI Placement - Failed after multiple attempts! Emergency handling..."));
+
+		// Find ANY valid tile on the grid
+		for (ATile* Tile : Grid->TileArray)
+		{
+			if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && Tile->GetOwner() != -2)
+			{
+				FVector2D GridPos = Tile->GetGridPosition();
+				int32 GridX = GridPos.X;
+				int32 GridY = GridPos.Y;
+
+				// Try placing with the first available unit type
+				EUnitType TypeToPlace = AvailableTypes[0];
+				Success = GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
+
+				if (Success)
+				{
+					FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
+					if (GameInstance)
+					{
+						GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place",
+							FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
+					}
+
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+						TEXT("AI Placement - Emergency placement successful!"));
+					break;
+				}
+			}
+		}
 	}
 
+	// Even if we couldn't place a unit, we need to ensure the game continues
+	if (!Success)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+			TEXT("WARNING: AI could not place unit! Marking as placed to avoid game freeze."));
+
+		// Mark a unit as placed to prevent game freeze (choose the first available type)
+		if (AvailableTypes.Contains(EUnitType::BRAWLER))
+			GameMode->BrawlerPlaced[PlayerNumber] = true;
+		else if (AvailableTypes.Contains(EUnitType::SNIPER))
+			GameMode->SniperPlaced[PlayerNumber] = true;
+
+		// Increment units placed to ensure game progresses
+		GameMode->UnitsPlaced++;
+	}
+
+	// Reset action state
 	CurrentAction = EAIAction::NONE;
 	bIsProcessingTurn = false;
 }
@@ -277,34 +333,82 @@ bool ATBS_NaiveAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
 		FString::Printf(TEXT("AI - Grid TileArray has %d tiles"), Grid->TileArray.Num()));
 
-	// Create a list of all empty tiles
+	// Create a list of all empty tiles with additional verification
 	TArray<ATile*> EmptyTiles;
+	int32 totalTiles = 0;
+	int32 occupiedTiles = 0;
+	int32 obstacleTiles = 0;
+	int32 emptyTiles = 0;
 
 	for (ATile* Tile : Grid->TileArray)
 	{
-		if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
+		totalTiles++;
+
+		if (!Tile)
+			continue;
+
+		ETileStatus status = Tile->GetTileStatus();
+		int32 owner = Tile->GetOwner();
+
+		if (status == ETileStatus::EMPTY)
 		{
-			EmptyTiles.Add(Tile);
+			// Double-check it's truly empty
+			if (!Tile->GetOccupyingUnit() && owner != -2) // -2 is for obstacles
+			{
+				EmptyTiles.Add(Tile);
+				emptyTiles++;
+			}
+			else if (owner == -2)
+			{
+				obstacleTiles++;
+			}
+		}
+		else
+		{
+			occupiedTiles++;
 		}
 	}
 
-	// Debug empty tiles count
+	// Detailed debug for understanding tile states
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI - Found %d empty tiles for placement"), EmptyTiles.Num()));
+		FString::Printf(TEXT("AI - Found %d truly empty tiles, %d obstacles, %d occupied tiles out of %d total"),
+			emptyTiles, obstacleTiles, occupiedTiles, totalTiles));
 
 	// If we found empty tiles, pick a random one
 	if (EmptyTiles.Num() > 0)
 	{
-		int32 RandomIndex = FMath::RandRange(0, EmptyTiles.Num() - 1);
-		ATile* SelectedTile = EmptyTiles[RandomIndex];
+		int32 MaxAttempts = 10; // Prevent infinite loop
+		for (int32 Attempt = 0; Attempt < MaxAttempts; Attempt++)
+		{
+			int32 RandomIndex = FMath::RandRange(0, EmptyTiles.Num() - 1);
+			ATile* SelectedTile = EmptyTiles[RandomIndex];
 
-		FVector2D GridPos = SelectedTile->GetGridPosition();
-		OutX = GridPos.X;
-		OutY = GridPos.Y;
+			// Final verification that tile is truly empty
+			if (SelectedTile && SelectedTile->GetTileStatus() == ETileStatus::EMPTY &&
+				!SelectedTile->GetOccupyingUnit() && SelectedTile->GetOwner() != -2)
+			{
+				FVector2D GridPos = SelectedTile->GetGridPosition();
+				OutX = GridPos.X;
+				OutY = GridPos.Y;
 
-		return true;
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+					FString::Printf(TEXT("AI - Selected empty tile at (%d,%d) with status %d and owner %d"),
+						OutX, OutY, (int32)SelectedTile->GetTileStatus(), SelectedTile->GetOwner()));
+
+				return true;
+			}
+			else
+			{
+				// Remove this tile from consideration and try again
+				EmptyTiles.RemoveAt(RandomIndex);
+
+				if (EmptyTiles.Num() == 0)
+					break;
+			}
+		}
 	}
 
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI - Could not find any suitable empty tiles after verification"));
 	return false;
 }
 
@@ -346,7 +450,7 @@ void ATBS_NaiveAI::ProcessUnitAction(AUnit* Unit)
 	// Find all units owned by this AI
 	FindMyUnits();
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, 
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
 		FString::Printf(TEXT("AI found %d units"), MyUnits.Num()));
 
 	if (!Unit || Unit->IsDead())
@@ -379,7 +483,7 @@ void ATBS_NaiveAI::ProcessUnitAction(AUnit* Unit)
 		Unit->bHasAttacked = true;
 
 		// Record skipped turn
-			GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Skip", FVector2D::ZeroVector, FVector2D::ZeroVector, 0);
+		GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Skip", FVector2D::ZeroVector, FVector2D::ZeroVector, 0);
 	}
 }
 
