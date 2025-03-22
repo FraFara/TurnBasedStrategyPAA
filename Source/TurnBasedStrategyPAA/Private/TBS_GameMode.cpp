@@ -906,7 +906,15 @@ void ATBS_GameMode::SpawnObstacles()
             if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
             {
                 // Mark as obstacles
-                Tile->SetTileStatus(-2, ETileStatus::OCCUPIED); // -2 for obstacles
+                Tile->SetAsObstacle();
+
+                UMaterialInstanceDynamic* ObstacleMaterial = UMaterialInstanceDynamic::Create(
+                    Tile->StaticMeshComponent->GetMaterial(0), nullptr);
+                if (ObstacleMaterial)
+                {
+                    ObstacleMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(0.3f, 0.3f, 0.3f, 1.0f)); // Dark gray
+                    Tile->StaticMeshComponent->SetMaterial(0, ObstacleMaterial);
+                }
 
                 PlacedObstacles++;
             }

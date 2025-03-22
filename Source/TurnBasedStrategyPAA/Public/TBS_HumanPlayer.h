@@ -51,6 +51,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Gameplay")
 	EPlayerAction CurrentAction;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Unit Info")
+	AUnit* LastClickedUnit;
+
 
 protected:
 	// Called when the game starts or when spawned

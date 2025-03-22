@@ -18,6 +18,16 @@ AUnit::AUnit()
     SetRootComponent(SceneComponent);
     StaticMeshComponent->SetupAttachment(SceneComponent);
 
+    // Set proper collision settings for unit selection
+    StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    StaticMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+    StaticMeshComponent->SetCollisionObjectType(ECC_Pawn);
+    StaticMeshComponent->SetGenerateOverlapEvents(true);
+
+    // Make sure the mesh is visible and can be clicked
+    StaticMeshComponent->SetVisibility(true);
+    StaticMeshComponent->bSelectable = true;
+
     // Initialize variables
     AttackType = EAttackType::NONE;
     UnitType = EUnitType::NONE;

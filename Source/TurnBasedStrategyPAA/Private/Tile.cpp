@@ -75,6 +75,14 @@ AUnit* ATile::GetOccupyingUnit()
     return OccupyingUnit;
 }
 
+void ATile::SetAsObstacle()
+{
+    // Set the tile status
+    SetTileStatus(-2, ETileStatus::OCCUPIED);
+
+    // The actual visual changes will be handled in Blueprint
+}
+
 void ATile::SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial)
 {
     // Store the original material the first time we highlight

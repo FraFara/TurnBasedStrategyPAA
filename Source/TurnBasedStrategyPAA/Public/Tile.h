@@ -50,6 +50,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UStaticMeshComponent* StaticMeshComponent;
 
+	UFUNCTION(BlueprintCallable, Category = "Tile")
+	void SetAsObstacle();
+
 	// Called to Highlight movement and attack tiles
 	void SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial);
 

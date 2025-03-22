@@ -49,6 +49,45 @@ void ATBS_HumanPlayer::BeginPlay()
 	// Log that the human player is ready
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
 
+//	// Load default highlight materials if not set in Blueprint
+//	if (!MovementHighlightMaterial)
+//	{
+//		static ConstructorHelpers::FObjectFinder<UMaterialInterface> MovementMatFinder(TEXT("/Game/Materials/M_MovementHighlight"));
+//		if (MovementMatFinder.Succeeded())
+//		{
+//			MovementHighlightMaterial = MovementMatFinder.Object;
+//		}
+//		else
+//		{
+//			// Create a dynamic material instance if asset not found
+//			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(UMaterial::GetDefaultMaterial(MD_Surface), this);
+//			if (DynMaterial)
+//			{
+//				DynMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(0.0f, 0.5f, 1.0f, 0.5f)); // Blue
+//				MovementHighlightMaterial = DynMaterial;
+//			}
+//		}
+//	}
+//
+//	if (!AttackHighlightMaterial)
+//	{
+//		static ConstructorHelpers::FObjectFinder<UMaterialInterface> AttackMatFinder(TEXT("/Game/Materials/M_AttackHighlight"));
+//		if (AttackMatFinder.Succeeded())
+//		{
+//			AttackHighlightMaterial = AttackMatFinder.Object;
+//		}
+//		else
+//		{
+//			// Create a dynamic material instance if asset not found
+//			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(UMaterial::GetDefaultMaterial(MD_Surface), this);
+//			if (DynMaterial)
+//			{
+//				DynMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(1.0f, 0.2f, 0.2f, 0.5f)); // Red
+//				AttackHighlightMaterial = DynMaterial;
+//			}
+//		}
+//	}
+//
 }
 
 // Called every frame
@@ -329,6 +368,9 @@ void ATBS_HumanPlayer::OnClick()
 			// Unit selection logic
 			if (UnitOnTile)
 			{
+				// Always update LastClickedUnit for HUD display
+				LastClickedUnit = UnitOnTile;
+
 				// Log player comparing to ensure ownership check is correct
 				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
 					FString::Printf(TEXT("Unit owner: %d, Your player number: %d"),
