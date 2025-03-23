@@ -134,4 +134,44 @@ void UTBS_GameInstance::ResetGameStatistics()
     ScoreAIPlayer = 0;
     CurrentRound = 1;
     ClearMoveHistory();
+    ResetWinner(); // Reset the winner tracking
+}
+
+void UTBS_GameInstance::SetWinner(int32 WinnerIndex)
+{
+    CurrentWinner = WinnerIndex;
+
+    // Update the turn message to include winner info
+    FString WinnerMessage = GetWinnerMessage();
+
+    // Only append winner message if not empty
+    if (!WinnerMessage.IsEmpty())
+    {
+        TurnMessage = TurnMessage + TEXT(" | ") + WinnerMessage;
+    }
+}
+
+int32 UTBS_GameInstance::GetWinner() const
+{
+    return CurrentWinner;
+}
+
+bool UTBS_GameInstance::HasWinner() const
+{
+    return CurrentWinner >= 0;
+}
+
+FString UTBS_GameInstance::GetWinnerMessage() const
+{
+    if (CurrentWinner < 0)
+    {
+        return FString(); // No winner yet
+    }
+
+    return (CurrentWinner == 0) ? TEXT("Human Player Won!") : TEXT("AI Won!");
+}
+
+void UTBS_GameInstance::ResetWinner()
+{
+    CurrentWinner = -1;
 }

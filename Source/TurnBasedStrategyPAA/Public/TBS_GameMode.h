@@ -102,10 +102,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<UUserWidget> CoinTossWidgetClass;
 
-	// Round end widget class
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
-	TSubclassOf<UUserWidget> RoundEndWidgetClass;
-
 	// Unit Selection functions
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowUnitSelectionUI(bool bContextAware = false);

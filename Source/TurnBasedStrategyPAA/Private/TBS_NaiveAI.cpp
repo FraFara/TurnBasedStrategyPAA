@@ -118,7 +118,15 @@ void ATBS_NaiveAI::UpdateUI_Implementation()
 	GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
 	if (GameInstance && bIsProcessingTurn)
 	{
-		GameInstance->SetTurnMessage(TEXT("AI's Turn"));
+		FString Message = TEXT("AI's Turn");
+
+		// If there's a winner, append it to the message
+		if (GameInstance->HasWinner())
+		{
+			Message = Message + TEXT(" | ") + GameInstance->GetWinnerMessage();
+		}
+
+		GameInstance->SetTurnMessage(Message);
 	}
 
 	// Additional debug logging
@@ -130,8 +138,14 @@ void ATBS_NaiveAI::OnWin_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Wins!"));
 
-	GameInstance->SetTurnMessage(TEXT("AI (Random) Wins!"));
-	GameInstance->RecordGameResult(false); // Human didn't win
+	if (GameInstance)
+	{
+		// Set the winner to the AI player (index 1)
+		GameInstance->SetWinner(1);
+
+		GameInstance->SetTurnMessage(TEXT("AI (Random) Wins!"));
+		GameInstance->RecordGameResult(false); // Human didn't win
+	}
 }
 
 void ATBS_NaiveAI::OnLose_Implementation()

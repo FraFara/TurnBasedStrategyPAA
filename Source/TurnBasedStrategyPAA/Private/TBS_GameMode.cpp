@@ -393,59 +393,6 @@ void ATBS_GameMode::ShowCoinTossResult()
     }
 }
 
-void ATBS_GameMode::ShowRoundEndResult(int32 WinnerIndex)
-{
-    if (!RoundEndWidgetClass)
-        return;
-
-    // Get the game instance for round and score information
-    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
-    if (!GameInstance)
-        return;
-
-    // Create messages for the round end
-    FString WinnerName = (WinnerIndex == 0) ? TEXT("Human Player") : TEXT("AI");
-    FString RoundEndMessage = FString::Printf(TEXT("Round %d: %s Won!"),
-        GameInstance->GetCurrentRound(), *WinnerName);
-
-    // Display in debug log
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, RoundEndMessage);
-
-    // Create the widget and display it
-    RoundEndWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), RoundEndWidgetClass);
-    if (RoundEndWidget)
-    {
-        // Call the function to set winner info
-        if (UFunction* SetWinnerInfoFunc = RoundEndWidget->FindFunction(TEXT("SetWinnerInfo")))
-        {
-            struct
-            {
-                int32 WinnerIndex;
-            } Params;
-
-            Params.WinnerIndex = WinnerIndex;
-            RoundEndWidget->ProcessEvent(SetWinnerInfoFunc, &Params);
-        }
-
-        RoundEndWidget->AddToViewport();
-
-        // Auto-remove after 3 seconds and start new round
-        FTimerHandle TimerHandle;
-        GetWorldTimerManager().SetTimer(TimerHandle, [this]()
-            {
-                if (RoundEndWidget && RoundEndWidget->IsInViewport())
-                {
-                    RoundEndWidget->RemoveFromParent();
-                    RoundEndWidget = nullptr;
-
-                    // Start a new round
-                    int32 StartingPlayer = SimulateCoinToss();
-                    StartPlacementPhase(StartingPlayer);
-                }
-            }, 3.0f, false);
-    }
-}
-
 FString ATBS_GameMode::WinningPlayerMessage(int32 WinnerIndex)
 {
     if (WinnerIndex == 0)
@@ -631,8 +578,6 @@ void ATBS_GameMode::EndTurn()
     if (Players.IsValidIndex(CurrentPlayer))
     {
         ITBS_PlayerInterface::Execute_SetTurnState(Players[CurrentPlayer], false);
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            FString::Printf(TEXT("EndTurn - Ending turn for player %d"), CurrentPlayer));
     }
 
     // Skip to next player
@@ -666,9 +611,6 @@ void ATBS_GameMode::EndTurn()
 
         // Call the OnTurn function
         ITBS_PlayerInterface::Execute_OnTurn(Players[CurrentPlayer]);
-
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            FString::Printf(TEXT("EndTurn - Starting turn for player %d"), CurrentPlayer));
     }
 }
 
@@ -836,50 +778,118 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     return true;
 }
 
+//bool ATBS_GameMode::CheckGameOver()
+//{
+//    bool bGameOver = false;
+//    int32 WinningPlayer = -1;
+//
+//    // Reset unit count
+//    UnitsRemaining.SetNum(NumberOfPlayers);
+//    for (int32 i = 0; i < NumberOfPlayers; i++)
+//    {
+//        UnitsRemaining[i] = 0;
+//    }
+//
+//    // Check each player's remaining units
+//    for (int32 i = 0; i < NumberOfPlayers; i++)
+//    {
+//        TArray<AActor*> PlayerUnits;
+//        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), PlayerUnits);
+//
+//        int32 RemainingUnits = 0;
+//        for (AActor* Actor : PlayerUnits)
+//        {
+//            AUnit* Unit = Cast<AUnit>(Actor);
+//            if (Unit && Unit->GetOwnerID() == i)
+//            {
+//                RemainingUnits++;
+//            }
+//        }
+//
+//        UnitsRemaining[i] = RemainingUnits;
+//
+//        // Detailed debug logging to understand unit counts
+//        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
+//            FString::Printf(TEXT("Player %d has %d units remaining"), i, RemainingUnits));
+//
+//        // If a player has no units, the other player wins
+//        if (RemainingUnits == 0)
+//        {
+//            bGameOver = true;
+//            WinningPlayer = (i + 1) % NumberOfPlayers; // Other player wins
+//
+//            // Add more explicit messaging
+//            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+//                FString::Printf(TEXT("Player %d has no units left! Player %d wins this round!"),
+//                    i, WinningPlayer));
+//        }
+//    }
+//
+//    if (bGameOver && !bIsGameOver)
+//    {
+//        bIsGameOver = true;
+//        PlayerWon(WinningPlayer);
+//    }
+//
+//    return bGameOver;
+//}
+
 bool ATBS_GameMode::CheckGameOver()
 {
     bool bGameOver = false;
     int32 WinningPlayer = -1;
 
-    // Check each player's remaining units
+    // Count each player's remaining units
+    TArray<AActor*> PlayerUnits;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), PlayerUnits);
+
+    // Reset counters
+    UnitsRemaining.SetNum(NumberOfPlayers);
     for (int32 i = 0; i < NumberOfPlayers; i++)
     {
-        TArray<AActor*> PlayerUnits;
-        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), PlayerUnits);
+        UnitsRemaining[i] = 0;
+    }
 
-        int32 RemainingUnits = 0;
-        for (AActor* Actor : PlayerUnits)
+    // Count units by player
+    for (AActor* Actor : PlayerUnits)
+    {
+        AUnit* Unit = Cast<AUnit>(Actor);
+        if (Unit && !Unit->IsDead())
         {
-            AUnit* Unit = Cast<AUnit>(Actor);
-            if (Unit && Unit->GetOwnerID() == i)
+            int32 OwnerID = Unit->GetOwnerID();
+            if (OwnerID >= 0 && OwnerID < NumberOfPlayers)
             {
-                RemainingUnits++;
+                UnitsRemaining[OwnerID]++;
             }
         }
+    }
 
-        UnitsRemaining[i] = RemainingUnits;
+    // Check if any player has lost all units
+    for (int32 i = 0; i < NumberOfPlayers; i++)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            FString::Printf(TEXT("Player %d has %d units remaining"), i, UnitsRemaining[i]));
 
-        // Detailed debug logging to understand unit counts
-        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
-            FString::Printf(TEXT("Player %d has %d units remaining"), i, RemainingUnits));
-
-        // If a player has no units, the other player wins
-        if (RemainingUnits == 0)
+        if (UnitsRemaining[i] == 0)
         {
             bGameOver = true;
             WinningPlayer = (i + 1) % NumberOfPlayers; // Other player wins
 
-            // Add more explicit messaging
             GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-                FString::Printf(TEXT("Player %d has no units left! Player %d wins this round!"),
+                FString::Printf(TEXT("Player %d has no units left! Player %d WINS!"),
                     i, WinningPlayer));
         }
     }
 
     if (bGameOver && !bIsGameOver)
     {
-        bIsGameOver = true;
-        PlayerWon(WinningPlayer);
+        // Call PlayerWon with a slight delay to ensure all game state updates
+        FTimerHandle GameOverTimerHandle;
+        int32 FinalWinner = WinningPlayer;
+        GetWorldTimerManager().SetTimer(GameOverTimerHandle, [this, FinalWinner]()
+            {
+                PlayerWon(FinalWinner);
+            }, 0.5f, false);
     }
 
     return bGameOver;
@@ -892,10 +902,30 @@ void ATBS_GameMode::NotifyUnitDestroyed(int32 PlayerIndex)
     {
         UnitsRemaining[PlayerIndex]--;
 
-        // Check if the game is over
-        CheckGameOver();
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange,
+            FString::Printf(TEXT("Player %d lost a unit! Units remaining: %d"),
+                PlayerIndex, UnitsRemaining[PlayerIndex]));
+
+        // Check if the game is over with a slight delay to ensure all damage is processed
+        FTimerHandle CheckGameOverTimerHandle;
+        GetWorldTimerManager().SetTimer(CheckGameOverTimerHandle, [this]()
+            {
+                CheckGameOver();
+            }, 0.1f, false);
     }
 }
+
+//void ATBS_GameMode::NotifyUnitDestroyed(int32 PlayerIndex)
+//{
+//    // Decrement the player's unit count
+//    if (UnitsRemaining.IsValidIndex(PlayerIndex))
+//    {
+//        UnitsRemaining[PlayerIndex]--;
+//
+//        // Check if the game is over
+//        CheckGameOver();
+//    }
+//}
 
 AActor* ATBS_GameMode::GetCurrentPlayer()
 {
@@ -909,6 +939,20 @@ AActor* ATBS_GameMode::GetCurrentPlayer()
 
 void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
 {
+    // Debug message to confirm function is called
+    GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Green,
+        FString::Printf(TEXT("GAME OVER! Player %d has WON the game!"), PlayerIndex));
+
+    // Make sure we aren't calling this multiple times
+    if (CurrentPhase == EGamePhase::ROUND_END)
+    {
+        return;
+    }
+
+    // Set phase to ROUND_END to prevent multiple calls
+    CurrentPhase = EGamePhase::ROUND_END;
+    bIsGameOver = true;
+
     // Notify all players about the winner
     for (int32 i = 0; i < Players.Num(); i++)
     {
@@ -936,22 +980,39 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
         }
     }
 
-    // Setup for endround widget
-    WinningPlayerMessage(PlayerIndex);
-
-    // Instead of just ending the game, reset for the next round
-    FTimerHandle RoundResetTimerHandle;
-    GetWorldTimerManager().SetTimer(RoundResetTimerHandle, [this, PlayerIndex]()
+    // Get game instance to update the score and set the winner
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        // Update score
+        if (PlayerIndex == 0)
         {
-            ResetForNewRound(PlayerIndex);
-        }, 1.0f, false); // 1 second delay before resetting the round
+            GameInstance->IncrementScoreHumanPlayer();
+        }
+        else
+        {
+            GameInstance->IncrementScoreAiPlayer();
+        }
+
+        // Set the winner in the game instance
+        GameInstance->SetWinner(PlayerIndex);
+
+        // Show end game message
+        FString WinnerName = (PlayerIndex == 0) ? TEXT("Human Player") : TEXT("AI Player");
+        FString EndGameMessage = FString::Printf(TEXT("GAME OVER! %s has WON the game! (Score: Human %d - AI %d)"),
+            *WinnerName, GameInstance->GetScoreHumanPlayer(), GameInstance->GetScoreAiPlayer());
+
+        GameInstance->SetTurnMessage(EndGameMessage);
+
+        // Show on-screen message
+        GEngine->AddOnScreenDebugMessage(-1, 30.f,
+            PlayerIndex == 0 ? FColor::Green : FColor::Red,
+            EndGameMessage);
+    }
 }
 
 void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
 {
-    // First, show the round end widget with results
-    ShowRoundEndResult(WinnerIndex);
-
     // Get the game instance to update the round counter and score
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
     if (GameInstance)
@@ -971,58 +1032,72 @@ void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
 
         // Clear move history for the new round
         GameInstance->ClearMoveHistory();
+
+        // Reset winner tracking
+        GameInstance->ResetWinner();
+
+        // Display winner message
+        FString WinnerMessage = WinningPlayerMessage(WinnerIndex);
+        GameInstance->SetTurnMessage(WinnerMessage);
     }
 
-    // Reset game variables
-    bIsGameOver = false;
-    UnitsPlaced = 0;
-    CurrentPhase = EGamePhase::ROUND_END;
-
-    // Reset unit placement tracking
-    BrawlerPlaced.Init(false, NumberOfPlayers);
-    SniperPlaced.Init(false, NumberOfPlayers);
-
-    // Reset remaining units count
-    UnitsRemaining.SetNum(NumberOfPlayers);
-    for (int32 i = 0; i < NumberOfPlayers; i++)
-    {
-        UnitsRemaining[i] = UnitsPerPlayer;
-    }
-
-    // Remove all units from the grid
-    TArray<AActor*> AllUnits;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
-    for (AActor* UnitActor : AllUnits)
-    {
-        if (UnitActor)
+    // Start a new round with slight delay
+    FTimerHandle TimerHandle;
+    GetWorldTimerManager().SetTimer(TimerHandle, [this]()
         {
-            // Get the unit reference
-            AUnit* Unit = Cast<AUnit>(UnitActor);
-            if (Unit)
+            // Reset game variables
+            bIsGameOver = false;
+            UnitsPlaced = 0;
+            CurrentPhase = EGamePhase::NONE;
+
+            // Reset unit placement tracking
+            BrawlerPlaced.Init(false, NumberOfPlayers);
+            SniperPlaced.Init(false, NumberOfPlayers);
+
+            // Reset remaining units count
+            UnitsRemaining.SetNum(NumberOfPlayers);
+            for (int32 i = 0; i < NumberOfPlayers; i++)
             {
-                // Clean up its tile
-                ATile* CurrentTile = Unit->GetCurrentTile();
-                if (CurrentTile)
+                UnitsRemaining[i] = UnitsPerPlayer;
+            }
+
+            // Remove all units from the grid
+            TArray<AActor*> AllUnits;
+            UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
+            for (AActor* UnitActor : AllUnits)
+            {
+                if (UnitActor)
                 {
-                    CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
-                    CurrentTile->SetOccupyingUnit(nullptr);
+                    // Get the unit reference
+                    AUnit* Unit = Cast<AUnit>(UnitActor);
+                    if (Unit)
+                    {
+                        // Clean up its tile
+                        ATile* CurrentTile = Unit->GetCurrentTile();
+                        if (CurrentTile)
+                        {
+                            CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+                            CurrentTile->SetOccupyingUnit(nullptr);
+                        }
+                    }
+                    // Destroy the unit
+                    UnitActor->Destroy();
                 }
             }
-            // Destroy the unit
-            UnitActor->Destroy();
-        }
-    }
 
-    // Reset the grid and regenerate obstacles
-    if (GameGrid)
-    {
-        GameGrid->ResetGrid();
-        // Spawn new obstacles for the next round
-        SpawnObstacles();
-    }
+            // Reset the grid and regenerate obstacles
+            if (GameGrid)
+            {
+                GameGrid->ResetGrid();
+                // Spawn new obstacles for the next round
+                SpawnObstacles();
+            }
 
-    // Debug messaging
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Board reset for new round"));
+            // Start a new round with coin toss
+            int32 StartingPlayer = SimulateCoinToss();
+            StartPlacementPhase(StartingPlayer);
+
+        }, 3.0f, false);
 }
 
 void ATBS_GameMode::SpawnObstacles()
@@ -1056,11 +1131,11 @@ void ATBS_GameMode::SpawnObstacles()
     // Track actual obstacles placed
     int32 PlacedObstacles = 0;
 
-    // IMPORTANT: Make a copy of the tiles array to avoid modifying it while iterating
+    // Make a copy of the tiles array to avoid modifying it while iterating
     TArray<ATile*> AvailableTiles;
     for (ATile* Tile : GameGrid->TileArray)
     {
-        if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
+        if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->GetOccupyingUnit())
         {
             AvailableTiles.Add(Tile);
         }
@@ -1113,10 +1188,20 @@ void ATBS_GameMode::SpawnObstacles()
         }
     }
 
+    // Final verification pass - check all tiles and make sure obstacles are properly marked
+    int32 verifiedObstacles = 0;
+    for (ATile* Tile : GameGrid->TileArray)
+    {
+        if (Tile && Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
+        {
+            verifiedObstacles++;
+        }
+    }
+
     // Final log
     GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
-        FString::Printf(TEXT("Completed: Placed %d/%d obstacles (%.1f%%)"),
-            PlacedObstacles, ObstaclesToPlace, (float)PlacedObstacles / ObstaclesToPlace * 100.0f));
+        FString::Printf(TEXT("Completed: Placed and verified %d/%d obstacles (%.1f%%)"),
+            verifiedObstacles, ObstaclesToPlace, (float)verifiedObstacles / ObstaclesToPlace * 100.0f));
 }
 
 

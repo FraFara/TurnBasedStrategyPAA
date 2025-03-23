@@ -57,18 +57,49 @@ void ATBS_PlayerController::SetGameInputMode()
 
 void ATBS_PlayerController::ClickOnGrid()
 {
-    // Robust error checking
-    APawn* ControlledPawn = GetPawn();
-    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(ControlledPawn);
+    // Get hit results for all objects
+    FHitResult HitResult;
+    bool bHitSuccessful = GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
-    if (HumanPlayer)
+    if (bHitSuccessful)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Clicking on Grid"));
-        HumanPlayer->OnClick();
-    }
-    else
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to cast to HumanPlayer"));
+        // Try to cast to tile first
+        ATile* ClickedTile = Cast<ATile>(HitResult.GetActor());
+
+        // If no tile found, try to find the closest tile
+        if (!ClickedTile)
+        {
+            TArray<AActor*> FoundTiles;
+            UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATile::StaticClass(), FoundTiles);
+
+            float ClosestDistance = FLT_MAX;
+            for (AActor* TileActor : FoundTiles)
+            {
+                ATile* Tile = Cast<ATile>(TileActor);
+                if (Tile)
+                {
+                    float Distance = FVector::Distance(HitResult.Location, Tile->GetActorLocation());
+                    if (Distance < ClosestDistance)
+                    {
+                        ClosestDistance = Distance;
+                        ClickedTile = Tile;
+                    }
+                }
+            }
+        }
+
+        // If we found a tile, pass it to the human player
+        if (ClickedTile)
+        {
+            APawn* ControlledPawn = GetPawn();
+            ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(ControlledPawn);
+
+            if (HumanPlayer)
+            {
+                // Use the tile we found
+                HumanPlayer->OnClick();
+            }
+        }
     }
 }
 

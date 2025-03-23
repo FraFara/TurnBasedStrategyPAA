@@ -86,4 +86,14 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Game Statistics")
     void ResetGameStatistics();
+
+    // Track the winner of the current game
+    void SetWinner(int32 WinnerIndex);
+    int32 GetWinner() const;
+    bool HasWinner() const;
+    FString GetWinnerMessage() const;
+    void ResetWinner();
+
+    int32 CurrentWinner = -1; // -1 means no winner yet
+
 };

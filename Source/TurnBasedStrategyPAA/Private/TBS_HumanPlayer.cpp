@@ -151,6 +151,18 @@ void ATBS_HumanPlayer::OnTurn_Implementation()
 void ATBS_HumanPlayer::OnWin_Implementation()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("You Win!"));
+
+	// Ensure the game instance is set
+	if (!GameInstance)
+	{
+		GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+	}
+
+	if (GameInstance)
+	{
+		// Set the winner to the human player (index 0)
+		GameInstance->SetWinner(0);
+	}
 }
 
 void ATBS_HumanPlayer::OnLose_Implementation()
@@ -233,7 +245,7 @@ void ATBS_HumanPlayer::OnClick()
 		return;
 	}
 
-	// Get hit result under cursor - try to get a direct hit on a tile
+	// Get hit result under cursor
 	FHitResult Hit;
 	bool bHitSuccessful = GetWorld()->GetFirstPlayerController()->GetHitResultUnderCursor(
 		ECollisionChannel::ECC_Visibility, false, Hit);
@@ -244,46 +256,36 @@ void ATBS_HumanPlayer::OnClick()
 		return;
 	}
 
-	// Try to directly cast to a tile
+	// Prioritize direct hits on Tile or Unit
 	ATile* ClickedTile = Cast<ATile>(Hit.GetActor());
+	AUnit* ClickedUnit = Cast<AUnit>(Hit.GetActor());
 
-	if (ClickedTile)
+	// If a unit was clicked, get its tile
+	if (ClickedUnit)
 	{
-		// We have a direct hit on a tile
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Green,
-			FString::Printf(TEXT("Direct hit on tile at position (%f, %f)"),
-				ClickedTile->GetGridPosition().X, ClickedTile->GetGridPosition().Y));
+		ClickedTile = ClickedUnit->GetCurrentTile();
 	}
-	else
+
+	// If no tile found through direct hit, try grid conversion
+	if (!ClickedTile)
 	{
-		// Fallback to converting the hit location to grid coordinates
 		AGrid* Grid = GameMode->GameGrid;
 		FVector2D GridPos = Grid->GetXYPositionByRelativeLocation(Hit.Location);
 		int32 GridX = FMath::FloorToInt(GridPos.X);
 		int32 GridY = FMath::FloorToInt(GridPos.Y);
 
 		// Check if grid position is valid
-		if (GridX < 0 || GridX >= Grid->Size || GridY < 0 || GridY >= Grid->Size)
+		if (GridX >= 0 && GridX < Grid->Size && GridY >= 0 && GridY < Grid->Size)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Grid position out of bounds"));
-			return;
+			FVector2D TilePos(GridX, GridY);
+			if (Grid->TileMap.Contains(TilePos))
+			{
+				ClickedTile = Grid->TileMap[TilePos];
+			}
 		}
-
-		// Get the tile at this grid position
-		FVector2D TilePos(GridX, GridY);
-		if (!Grid->TileMap.Contains(TilePos))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No tile at this grid position"));
-			return;
-		}
-
-		ClickedTile = Grid->TileMap[TilePos];
-
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
-			FString::Printf(TEXT("Converted hit to tile at position (%f, %f)"),
-				ClickedTile->GetGridPosition().X, ClickedTile->GetGridPosition().Y));
 	}
 
+	// Validate the clicked tile
 	if (!ClickedTile)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to find a valid tile"));
@@ -402,28 +404,34 @@ void ATBS_HumanPlayer::OnClick()
 			break;
 
 		case EPlayerAction::MOVEMENT:
-			// Movement logic
 			if (SelectedUnit && !SelectedUnit->HasMoved())
 			{
 				TArray<ATile*> MovementTiles = SelectedUnit->GetMovementTiles();
-				if (MovementTiles.Contains(ClickedTile))
+
+				// More robust tile matching
+				ATile* MatchedTile = nullptr;
+				for (ATile* MovementTile : MovementTiles)
+				{
+					// Compare grid positions precisely
+					if (MovementTile->GetGridPosition().X == ClickedTile->GetGridPosition().X &&
+						MovementTile->GetGridPosition().Y == ClickedTile->GetGridPosition().Y)
+					{
+						MatchedTile = MovementTile;
+						break;
+					}
+				}
+
+				if (MatchedTile)
 				{
 					FVector2D FromPos = SelectedUnit->GetCurrentTile()->GetGridPosition();
-					FVector2D ToPos = ClickedTile->GetGridPosition();
+					FVector2D ToPos = MatchedTile->GetGridPosition();
 
-					if (SelectedUnit->MoveToTile(ClickedTile))
+					if (SelectedUnit->MoveToTile(MatchedTile))
 					{
-						// Record move in history
+						// Existing move history and UI update logic
 						if (GameInstance)
 						{
 							GameInstance->AddMoveToHistory(PlayerNumber,
-								SelectedUnit->GetUnitName(),
-								TEXT("Move"), FromPos, ToPos, 0);
-						}
-
-						if (GameMode)
-						{
-							GameMode->RecordMove(PlayerNumber,
 								SelectedUnit->GetUnitName(),
 								TEXT("Move"), FromPos, ToPos, 0);
 						}
@@ -438,9 +446,25 @@ void ATBS_HumanPlayer::OnClick()
 						else
 						{
 							SelectedUnit = nullptr;
-							// Check if all units have completed their actions
 							CheckAllUnitsFinished();
 						}
+					}
+				}
+				else
+				{
+					// More detailed error logging
+					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+						FString::Printf(TEXT("Cannot move to tile at (%f, %f)"),
+							ClickedTile->GetGridPosition().X,
+							ClickedTile->GetGridPosition().Y));
+
+					// Print out all valid movement tiles for comparison
+					for (ATile* MovementTile : MovementTiles)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+							FString::Printf(TEXT("Valid Movement Tile: (%f, %f)"),
+								MovementTile->GetGridPosition().X,
+								MovementTile->GetGridPosition().Y));
 					}
 				}
 			}
@@ -846,13 +870,35 @@ void ATBS_HumanPlayer::UpdateUI_Implementation()
 	// Update "Player's Turn" text in the UI
 	if (GameInstance)
 	{
+		FString WinnerMessage;
+		if (GameInstance->HasWinner())
+		{
+			WinnerMessage = GameInstance->GetWinnerMessage();
+		}
+
 		if (IsMyTurn)
 		{
-			GameInstance->SetTurnMessage(TEXT("Your Turn - Select a unit"));
+			FString Message = TEXT("Your Turn - Select a unit");
+
+			// If there's a winner, append it to the message
+			if (!WinnerMessage.IsEmpty())
+			{
+				Message = Message + TEXT(" | ") + WinnerMessage;
+			}
+
+			GameInstance->SetTurnMessage(Message);
 		}
 		else
 		{
-			GameInstance->SetTurnMessage(TEXT("AI's Turn"));
+			FString Message = TEXT("AI's Turn");
+
+			// If there's a winner, append it to the message
+			if (!WinnerMessage.IsEmpty())
+			{
+				Message = Message + TEXT(" | ") + WinnerMessage;
+			}
+
+			GameInstance->SetTurnMessage(Message);
 		}
 	}
 
@@ -860,6 +906,7 @@ void ATBS_HumanPlayer::UpdateUI_Implementation()
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
 		FString::Printf(TEXT("UpdateUI called. IsMyTurn: %d"), IsMyTurn ? 1 : 0));
 }
+
 
 void ATBS_HumanPlayer::EndTurn()
 {

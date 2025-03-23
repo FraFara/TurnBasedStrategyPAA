@@ -193,31 +193,27 @@ bool AUnit::MoveToTile(ATile* Tile)
 // Checks possible tiles to occupy
 TArray<ATile*> AUnit::GetMovementTiles()
 {
-    TArray<ATile*> ValidTiles; // Array to store results
+    TArray<ATile*> ValidTiles;
 
-    if (!CurrentTile || !Grid) // Checks if the unit has a current tile and if the grid exists
+    if (!CurrentTile || !Grid)
         return ValidTiles;
 
-    FVector2D CurrentPos = CurrentTile->GetGridPosition();
-
-    // Algorithm BFS to find valid movement tiles
     TArray<ATile*> Queue;
     TMap<ATile*, int32> Distance;
 
-    Queue.Add(CurrentTile); // Adds tile to queue and sets distance to 0
+    Queue.Add(CurrentTile);
     Distance.Add(CurrentTile, 0);
 
-    while (Queue.Num() > 0) //While Queue is not empty
+    while (Queue.Num() > 0)
     {
-        ATile* Tile = Queue[0]; // analize and remove the first item from the Queue
+        ATile* Tile = Queue[0];
         Queue.RemoveAt(0);
 
-        FVector2D TilePos = Tile->GetGridPosition(); // Gets the distance of a tile from the starting tile
+        FVector2D TilePos = Tile->GetGridPosition();
         int32 CurrentDistance = Distance[Tile];
 
-        if (CurrentDistance < MovementRange) // If still in range
+        if (CurrentDistance < MovementRange)
         {
-            // Checks adjacent tiles (HASNEXT)
             TArray<FVector2D> Directions = {
                 FVector2D(0, 1),
                 FVector2D(0, -1),
@@ -225,19 +221,19 @@ TArray<ATile*> AUnit::GetMovementTiles()
                 FVector2D(-1, 0)
             };
 
-            // For every adjacent tile...
             for (FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
 
-                // ...checks if the new position is valid
                 if (Grid->TileMap.Contains(NewPos))
                 {
                     ATile* NextTile = Grid->TileMap[NewPos];
 
-                    // Only add tile if it's empty AND not an obstacle (owner != -2)
-                    if (NextTile->GetTileStatus() == ETileStatus::EMPTY &&
-                        NextTile->GetOwner() != -2 &&  // Check it's not an obstacle
+                    // More explicit and simplified obstacle check
+                    if (NextTile &&
+                        NextTile->GetTileStatus() == ETileStatus::EMPTY &&
+                        NextTile->GetOwner() != -2 &&
+                        !NextTile->GetOccupyingUnit() &&
                         !Distance.Contains(NextTile))
                     {
                         Queue.Add(NextTile);
@@ -248,20 +244,23 @@ TArray<ATile*> AUnit::GetMovementTiles()
         }
     }
 
-    // Add all tiles except current
+    // Collect valid movement tiles
     for (auto& Elem : Distance)
     {
-        if (Elem.Key != CurrentTile)
+        ATile* Tile = Elem.Key;
+        if (Tile != CurrentTile &&
+            Tile->GetTileStatus() == ETileStatus::EMPTY &&
+            Tile->GetOwner() != -2 &&
+            !Tile->GetOccupyingUnit())
         {
-            ValidTiles.Add(Elem.Key);
+            ValidTiles.Add(Tile);
         }
     }
 
     return ValidTiles;
 }
 
-// Checks attackable tiles
-TArray<ATile*> AUnit::GetAttackTiles() // Similar structure as the GetMovementTiles
+TArray<ATile*> AUnit::GetAttackTiles()
 {
     TArray<ATile*> ValidTiles;
 
@@ -284,7 +283,11 @@ TArray<ATile*> AUnit::GetAttackTiles() // Similar structure as the GetMovementTi
         int32 CurrentDistance = Distance[Tile];
 
         // Checks if this is an attackable tile (if it is occupied by enemy)
-        if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() != OwnerID)
+        // Note: Obstacles are not attackable even though they're "occupied"
+        if (Tile->GetTileStatus() == ETileStatus::OCCUPIED &&
+            Tile->GetOwner() != OwnerID &&
+            !Tile->IsObstacle() &&
+            Tile->GetOccupyingUnit())
         {
             ValidTiles.Add(Tile);
         }
@@ -301,7 +304,7 @@ TArray<ATile*> AUnit::GetAttackTiles() // Similar structure as the GetMovementTi
             };
 
             // For every adjacent tile...
-            for (const FVector2D& Dir : Directions)     //const?
+            for (const FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
 
@@ -311,7 +314,8 @@ TArray<ATile*> AUnit::GetAttackTiles() // Similar structure as the GetMovementTi
                     ATile* NextTile = Grid->TileMap[NewPos];
 
                     // If the tile hasn't been visited yet
-                    if (!Distance.Contains(NextTile))
+                    // Unlike movement tiles, attacks can go through obstacles in terms of range
+                    if (NextTile && !Distance.Contains(NextTile))
                     {
                         Queue.Add(NextTile);
                         Distance.Add(NextTile, CurrentDistance + 1);
@@ -360,6 +364,9 @@ void AUnit::ReceiveDamage(int32 DamageAmount)
         {
             // Notify the game mode about which player's unit was destroyed
             GameMode->NotifyUnitDestroyed(OwnerID);
+
+            // Manually trigger a game over check as a safeguard
+            GameMode->CheckGameOver();
         }
 
         CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
