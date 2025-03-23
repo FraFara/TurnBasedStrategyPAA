@@ -116,9 +116,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowCoinTossResult();
 
-	// Round end display
-	UFUNCTION(BlueprintCallable, Category = "UI")
-	void ShowRoundEndResult(int32 WinnerIndex);
+	//// Round end display
+	//UFUNCTION(BlueprintCallable, Category = "UI")
+	//void ShowRoundEndResult(int32 WinnerIndex);
 
 	// Returns winning player name
 	UFUNCTION(BlueprintCallable, Category = "UI")
