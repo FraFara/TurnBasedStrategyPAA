@@ -354,6 +354,13 @@ int32 ATBS_GameMode::SimulateCoinToss()
 
 void ATBS_GameMode::ShowCoinTossResult()
 {
+    // First, remove any existing coin toss widget to prevent overlaps
+    if (CoinTossWidget && CoinTossWidget->IsInViewport())
+    {
+        CoinTossWidget->RemoveFromParent();
+        CoinTossWidget = nullptr;
+    }
+
     if (!CoinTossWidgetClass)
         return;
 
@@ -393,6 +400,22 @@ void ATBS_GameMode::ShowCoinTossResult()
     }
 }
 
+void ATBS_GameMode::ResetGame()
+{
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Game Reset Requested"));
+
+    // Make sure we're not in the middle of something important
+    if (CurrentPhase == EGamePhase::SETUP)
+    {
+        // Hide unit selection UI if visible
+        HideUnitSelectionUI();
+    }
+
+    // Reset the game for a new round without declaring a winner
+    // Use -1 to indicate no specific winner for this reset
+    ResetForNewRound(-1);
+}
+
 FString ATBS_GameMode::WinningPlayerMessage(int32 WinnerIndex)
 {
     if (WinnerIndex == 0)
@@ -413,40 +436,44 @@ void ATBS_GameMode::DebugForceGameplay()
 
 void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
 {
+    // Clear UI first
+    HideUnitSelectionUI();
+
+    // Reset the current player and phase
     CurrentPlayer = StartingPlayer;
     CurrentPhase = EGamePhase::SETUP;
 
-    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("StartPlacementPhase called")); // To check where is the problem
-
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("StartPlacementPhase called"));
 
     // Notify the player it's their turn to place
     if (Players.IsValidIndex(CurrentPlayer))
     {
         AActor* PlayerActor = Players[CurrentPlayer];
 
-        // Get the interface pointer
-        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
-
         // Call the OnPlacement function
         ITBS_PlayerInterface::Execute_OnPlacement(PlayerActor);
 
-        // Show unit selection UI if it's the human player's turn (player 0)
+        // If it's human player's turn, show UI with slight delay to ensure other UIs are cleared
         if (CurrentPlayer == 0)
         {
-            // Add a debug message to verify this is called
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Showing Unit Selection UI"));
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Human Player's turn for placement"));
 
-            ShowUnitSelectionUI();
+            // Timer to delay showing the UI slightly
+            FTimerHandle ShowUITimerHandle;
+            GetWorldTimerManager().SetTimer(ShowUITimerHandle, [this]()
+                {
+                    ShowUnitSelectionUI(true);
+                }, 0.2f, false);
         }
         else
         {
-            GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
-                FString::Printf(TEXT("Not showing UI for player %d"), CurrentPlayer));
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+                FString::Printf(TEXT("AI's turn for placement (Player %d)"), CurrentPlayer));
         }
     }
     else
     {
-        GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Player index not valid"));
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Player index not valid"));
     }
 }
 
@@ -1017,17 +1044,8 @@ void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
     if (GameInstance)
     {
-        // Update score
-        if (WinnerIndex == 0)
-        {
-            GameInstance->IncrementScoreHumanPlayer();
-        }
-        else
-        {
-            GameInstance->IncrementScoreAiPlayer();
-        }
-
-        // Update round counter
+        // Reset the game without changing scores
+        // Increment round counter
         GameInstance->IncrementRound();
 
         // Clear move history for the new round
@@ -1036,24 +1054,33 @@ void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
         // Reset winner tracking
         GameInstance->ResetWinner();
 
-        // Display winner message
-        FString WinnerMessage = WinningPlayerMessage(WinnerIndex);
-        GameInstance->SetTurnMessage(WinnerMessage);
+        // Display new round message
+        FString NewRoundMessage = FString::Printf(TEXT("Starting Round %d"), GameInstance->GetCurrentRound());
+        GameInstance->SetTurnMessage(NewRoundMessage);
     }
+
+    // Clear any UI widgets immediately
+    HideUnitSelectionUI();
+
+    if (CoinTossWidget && CoinTossWidget->IsInViewport())
+    {
+        CoinTossWidget->RemoveFromParent();
+        CoinTossWidget = nullptr;
+    }
+
+    // Reset game variables immediately
+    bIsGameOver = false;
+    UnitsPlaced = 0;
+    CurrentPhase = EGamePhase::NONE;
+
+    // Reset unit placement tracking
+    BrawlerPlaced.Init(false, NumberOfPlayers);
+    SniperPlaced.Init(false, NumberOfPlayers);
 
     // Start a new round with slight delay
     FTimerHandle TimerHandle;
     GetWorldTimerManager().SetTimer(TimerHandle, [this]()
         {
-            // Reset game variables
-            bIsGameOver = false;
-            UnitsPlaced = 0;
-            CurrentPhase = EGamePhase::NONE;
-
-            // Reset unit placement tracking
-            BrawlerPlaced.Init(false, NumberOfPlayers);
-            SniperPlaced.Init(false, NumberOfPlayers);
-
             // Reset remaining units count
             UnitsRemaining.SetNum(NumberOfPlayers);
             for (int32 i = 0; i < NumberOfPlayers; i++)
@@ -1093,11 +1120,30 @@ void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
                 SpawnObstacles();
             }
 
-            // Start a new round with coin toss
-            int32 StartingPlayer = SimulateCoinToss();
-            StartPlacementPhase(StartingPlayer);
+            // Reset player states
+            for (AActor* PlayerActor : Players)
+            {
+                if (ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerActor))
+                {
+                    HumanPlayer->ResetActionState();
+                    HumanPlayer->ClearCurrentPlacementTile();
+                }
+                else if (ATBS_NaiveAI* AIPlayer = Cast<ATBS_NaiveAI>(PlayerActor))
+                {
+                    AIPlayer->ResetActionState();
+                }
+            }
 
-        }, 3.0f, false);
+            // Add an additional delay before starting the new placement phase to ensure UI is reset
+            FTimerHandle StartPlacementTimerHandle;
+            GetWorldTimerManager().SetTimer(StartPlacementTimerHandle, [this]()
+                {
+                    // Start a new round with coin toss
+                    int32 StartingPlayer = SimulateCoinToss();
+                    StartPlacementPhase(StartingPlayer);
+                }, 0.5f, false);
+
+        }, 1.0f, false);
 }
 
 void ATBS_GameMode::SpawnObstacles()

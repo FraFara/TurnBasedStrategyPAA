@@ -160,6 +160,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void ClearHighlightedTiles();
 
+	// UI Selection Detector
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	FString GetSelectionMessage() const;
+
 	// Parameter to keep track of the camera position
 	//int32 CameraPosition = 0;
 	//// Method to change the camera position

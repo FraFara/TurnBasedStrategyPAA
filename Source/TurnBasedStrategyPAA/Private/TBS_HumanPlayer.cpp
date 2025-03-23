@@ -172,6 +172,17 @@ void ATBS_HumanPlayer::OnLose_Implementation()
 
 void ATBS_HumanPlayer::OnPlacement_Implementation()
 {
+	// Check if this is really our turn (match with game mode's current player)
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode && GameMode->CurrentPlayer != PlayerNumber)
+	{
+		// It's not actually our turn - don't do anything
+		IsMyTurn = false;
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Not human player's turn for placement"));
+		return;
+	}
+
+	// If we get here, it's definitely our turn
 	IsMyTurn = true;
 	CurrentAction = EPlayerAction::PLACEMENT;
 
@@ -188,23 +199,10 @@ void ATBS_HumanPlayer::OnPlacement_Implementation()
 		GameInstance->SetTurnMessage(TEXT("Place Your Units"));
 	}
 
-	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, TEXT("Calling ShowUnitSelectionUI from Human Player"));
-		GameMode->ShowUnitSelectionUI();
-	}
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("GameMode is null from Human Player"));
-	}
-
-	// Single debug message without repeat
-	static bool bFirstPlacement = true;
-	if (bFirstPlacement)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Your Turn to Place Units"));
-		bFirstPlacement = false;
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Showing unit selection UI for human player"));
+		GameMode->ShowUnitSelectionUI(true);
 	}
 }
 
@@ -1034,6 +1032,57 @@ void ATBS_HumanPlayer::ClearHighlightedTiles()
 
 	// Reset mode
 	CurrentAction = EPlayerAction::NONE;
+}
+
+FString ATBS_HumanPlayer::GetSelectionMessage() const
+{
+	// Handle different scenarios
+	if (!IsMyTurn)
+	{
+		return FString(TEXT("Not your turn"));
+	}
+
+	if (SelectedUnit)
+	{
+		// We have a selected unit - provide information about it
+		FString UnitInfo = FString::Printf(TEXT("Selected: %s \nHealth: %d/%d"),
+			*SelectedUnit->GetUnitName(),
+			SelectedUnit->GetUnitHealth(),
+			SelectedUnit->GetMaxHealth());
+
+		// Add info about movement and attack availability
+		if (SelectedUnit->HasMoved() && SelectedUnit->HasAttacked())
+		{
+			UnitInfo += TEXT(" \n| No actions available");
+		}
+		else
+		{
+			if (!SelectedUnit->HasMoved())
+				UnitInfo += TEXT(" \n| Can move");
+
+			if (!SelectedUnit->HasAttacked())
+				UnitInfo += TEXT(" \n| Can attack");
+		}
+
+		return UnitInfo;
+	}
+	else if (CurrentAction == EPlayerAction::MOVEMENT)
+	{
+		return FString(TEXT("Select a tile to move to"));
+	}
+	else if (CurrentAction == EPlayerAction::ATTACK)
+	{
+		return FString(TEXT("Select an enemy to attack"));
+	}
+	else if (CurrentAction == EPlayerAction::PLACEMENT)
+	{
+		return FString(TEXT("Select a tile to place your unit"));
+	}
+	else
+	{
+		// Default state - no unit selected or enemy unit clicked
+		return FString(TEXT("Click on your unit to select it"));
+	}
 }
 
 void ATBS_HumanPlayer::PlaceUnit(int32 GridX, int32 GridY, EUnitType Type)

@@ -194,13 +194,12 @@ bool AUnit::MoveToTile(ATile* Tile)
 TArray<ATile*> AUnit::GetMovementTiles()
 {
     TArray<ATile*> ValidTiles;
-
     if (!CurrentTile || !Grid)
         return ValidTiles;
 
+    // Algorithm BFS to find valid movement tiles
     TArray<ATile*> Queue;
     TMap<ATile*, int32> Distance;
-
     Queue.Add(CurrentTile);
     Distance.Add(CurrentTile, 0);
 
@@ -209,8 +208,22 @@ TArray<ATile*> AUnit::GetMovementTiles()
         ATile* Tile = Queue[0];
         Queue.RemoveAt(0);
 
+        if (!Tile) 
+        {
+            continue; // check 
+        }
+
         FVector2D TilePos = Tile->GetGridPosition();
         int32 CurrentDistance = Distance[Tile];
+
+        // If this isn't the current tile and it's a valid destination, add it to valid tiles
+        if (Tile != CurrentTile &&
+            Tile->GetTileStatus() == ETileStatus::EMPTY &&
+            !Tile->IsObstacle() &&
+            !Tile->GetOccupyingUnit())
+        {
+            ValidTiles.Add(Tile);
+        }
 
         if (CurrentDistance < MovementRange)
         {
@@ -224,36 +237,38 @@ TArray<ATile*> AUnit::GetMovementTiles()
             for (FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
-
-                if (Grid->TileMap.Contains(NewPos))
+                
+                // Check if tiles is within grid
+                if (!Grid->TileMap.Contains(NewPos))
                 {
-                    ATile* NextTile = Grid->TileMap[NewPos];
-
-                    // More explicit and simplified obstacle check
-                    if (NextTile &&
-                        NextTile->GetTileStatus() == ETileStatus::EMPTY &&
-                        NextTile->GetOwner() != -2 &&
-                        !NextTile->GetOccupyingUnit() &&
-                        !Distance.Contains(NextTile))
-                    {
-                        Queue.Add(NextTile);
-                        Distance.Add(NextTile, CurrentDistance + 1);
-                    }
+                    continue;
                 }
-            }
-        }
-    }
 
-    // Collect valid movement tiles
-    for (auto& Elem : Distance)
-    {
-        ATile* Tile = Elem.Key;
-        if (Tile != CurrentTile &&
-            Tile->GetTileStatus() == ETileStatus::EMPTY &&
-            Tile->GetOwner() != -2 &&
-            !Tile->GetOccupyingUnit())
-        {
-            ValidTiles.Add(Tile);
+                ATile* NextTile = Grid->TileMap[NewPos];
+                if (NextTile->IsObstacle())
+                {
+                    continue;
+                }
+
+                if (NextTile->GetTileStatus() != ETileStatus::EMPTY)
+                {
+                    continue;
+                }
+
+                if (NextTile->GetOccupyingUnit())
+                {
+                    continue;
+                }
+
+                if (Distance.Contains(NextTile))
+                {
+                    continue;
+                }
+
+                // If all checks passed, this is a valid tile to explore
+                Queue.Add(NextTile);
+                Distance.Add(NextTile, CurrentDistance + 1);
+            }
         }
     }
 

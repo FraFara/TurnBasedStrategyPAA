@@ -34,19 +34,75 @@ void AGrid::BeginPlay()
 
 }
 
+//// Resets the grid to empty
+//void AGrid::ResetGrid()
+//{
+//	// First, clear all obstacles by properly resetting each tile
+//	for (ATile* Obj : TileArray)
+//	{
+//		// Special handling to properly reset obstacle tiles
+//		if (Obj->GetOwner() == -2 || Obj->IsObstacle())
+//		{
+//			// Make sure we properly clear the obstacle state
+//			Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
+//
+//			// Reset material to default (non-obstacle) appearance
+//			if (UFunction* Function = Obj->FindFunction(TEXT("ResetTileMaterial")))
+//			{
+//				Obj->ProcessEvent(Function, nullptr);
+//			}
+//		}
+//		else
+//		{
+//			// Normal reset for non-obstacle tiles
+//			Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
+//		}
+//	}
+//
+//	// Clear any occupying units references that might remain
+//	for (ATile* Obj : TileArray)
+//	{
+//		Obj->SetOccupyingUnit(nullptr);
+//	}
+//
+//	// Send broadcast event to registered objects 
+//	OnResetEvent.Broadcast();
+//
+//	// Get game mode and reset relevant state
+//	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+//	if (GameMode)
+//	{
+//		GameMode->bIsGameOver = false;
+//		GameMode->CurrentPhase = EGamePhase::NONE;
+//	}
+//}
+
 // Resets the grid to empty
 void AGrid::ResetGrid()
 {
-	for (ATile* Obj : TileArray) // make each tile of the grid empty
+	// Reset all tiles to empty state
+	for (ATile* Obj : TileArray)
 	{
+		// First, clear any highlights or special materials
+		Obj->ClearHighlight();
+
+		// Then reset the tile status
 		Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
+
+		// Clear any unit references
+		Obj->SetOccupyingUnit(nullptr);
 	}
-	// send broadcast event to registered objects 
+
+	// Send broadcast event to registered objects 
 	OnResetEvent.Broadcast();
+
+	// Get game mode and reset relevant state
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-	GameMode->bIsGameOver = false;
-	GameMode->CurrentPhase = EGamePhase::NONE;
-	GameMode->SimulateCoinToss();
+	if (GameMode)
+	{
+		GameMode->bIsGameOver = false;
+		GameMode->CurrentPhase = EGamePhase::NONE;
+	}
 }
 
 //Generates a squared (size x size) grid
