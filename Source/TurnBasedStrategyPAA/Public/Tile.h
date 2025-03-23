@@ -53,8 +53,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tile")
 	void SetAsObstacle();
 
-	// Called to Highlight movement and attack tiles
-	void SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial);
+	// Called to Highlight movement tiles
+	void SetHighlightForMovement();
+
+	// Called to Highlight attack tiles
+	void SetHighlightForAttack();
 
 	void ClearHighlight();
 

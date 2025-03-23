@@ -214,7 +214,7 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		return;
 	}
 
-	// Try to place a unit with multiple attempts
+	// Try to place a unit with multiple attempts -> to avoid getting stuck in waiting
 	int32 MaxPlacementAttempts = 5;
 	bool Success = false;
 

@@ -880,6 +880,11 @@ void ATBS_GameMode::SpawnObstacles()
     int32 TotalCells = GridSize * GridSize;
     int32 ObstaclesToPlace = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
 
+    // Reset obstacle count tracking for the attempt
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("Attempting to place %d obstacles (%.1f%% of %d cells)"),
+            ObstaclesToPlace, ObstaclePercentage, TotalCells));
+
     // Validate grid map
     if (GameGrid->TileMap.Num() == 0)
     {
@@ -887,45 +892,70 @@ void ATBS_GameMode::SpawnObstacles()
         return;
     }
 
-    // Simple random placement for now
+    // Track actual obstacles placed
     int32 PlacedObstacles = 0;
-    int32 MaxAttempts = ObstaclesToPlace * 10; // Prevent infinite loop
-    int32 Attempts = 0;
 
-    while (PlacedObstacles < ObstaclesToPlace && Attempts < MaxAttempts)
+    // IMPORTANT: Make a copy of the tiles array to avoid modifying it while iterating
+    TArray<ATile*> AvailableTiles;
+    for (ATile* Tile : GameGrid->TileArray)
     {
-        int32 RandomX = FMath::RandRange(0, GridSize - 1);
-        int32 RandomY = FMath::RandRange(0, GridSize - 1);
-
-        // Safely check if the tile exists
-        FVector2D Position(RandomX, RandomY);
-        if (GameGrid->TileMap.Contains(Position))
+        if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
         {
-            ATile* Tile = GameGrid->TileMap[Position];
-
-            if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
-            {
-                // Mark as obstacles
-                Tile->SetAsObstacle();
-
-                UMaterialInstanceDynamic* ObstacleMaterial = UMaterialInstanceDynamic::Create(
-                    Tile->StaticMeshComponent->GetMaterial(0), nullptr);
-                if (ObstacleMaterial)
-                {
-                    ObstacleMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(0.3f, 0.3f, 0.3f, 1.0f)); // Dark gray
-                    Tile->StaticMeshComponent->SetMaterial(0, ObstacleMaterial);
-                }
-
-                PlacedObstacles++;
-            }
+            AvailableTiles.Add(Tile);
         }
-
-        Attempts++;
     }
 
-    // Log obstacle placement
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Placed %d obstacles out of %d attempts"), PlacedObstacles, Attempts));
+    // Shuffle the available tiles (Fisher-Yates algorithm)
+    int32 LastIndex = AvailableTiles.Num() - 1;
+    for (int32 i = LastIndex; i > 0; i--)
+    {
+        int32 SwapIndex = FMath::RandRange(0, i);
+        if (i != SwapIndex)
+        {
+            AvailableTiles.Swap(i, SwapIndex);
+        }
+    }
+
+    // Clear progress message
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Shuffled tile array for obstacle placement"));
+
+    // Place obstacles by iterating through the shuffled array
+    for (int32 i = 0; i < AvailableTiles.Num() && PlacedObstacles < ObstaclesToPlace; i++)
+    {
+        ATile* Tile = AvailableTiles[i];
+
+        // Verify the tile is still available (belt and suspenders approach)
+        if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->GetOccupyingUnit())
+        {
+            // Try to mark the tile as an obstacle
+            Tile->SetAsObstacle();
+
+            // Verify that the tile was successfully marked
+            if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
+            {
+                PlacedObstacles++;
+
+                // Debug each successful obstacle placement
+                if (PlacedObstacles % 10 == 0 || PlacedObstacles == ObstaclesToPlace)
+                {
+                    GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
+                        FString::Printf(TEXT("Placed %d/%d obstacles"), PlacedObstacles, ObstaclesToPlace));
+                }
+            }
+            else
+            {
+                // Log if a tile couldn't be marked as an obstacle
+                GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Orange,
+                    FString::Printf(TEXT("Failed to mark tile at (%f,%f) as obstacle"),
+                        Tile->GetGridPosition().X, Tile->GetGridPosition().Y));
+            }
+        }
+    }
+
+    // Final log
+    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
+        FString::Printf(TEXT("Completed: Placed %d/%d obstacles (%.1f%%)"),
+            PlacedObstacles, ObstaclesToPlace, (float)PlacedObstacles / ObstaclesToPlace * 100.0f));
 }
 
 

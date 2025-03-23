@@ -34,9 +34,17 @@ ATile::ATile()
     PlayerOwner = -1;
     TileGridPosition = FVector2D(0, 0);
     
-    // Initialize the new variables
     OriginalMaterial = nullptr;
-    bIsHighlighted = false;
+    //bIsHighlighted = false;
+
+    // Store original material
+    if (StaticMeshComponent)
+    {
+        OriginalMaterial = StaticMeshComponent->GetMaterial(0);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            FString::Printf(TEXT("Tile at (%f,%f) stored original material"),
+                TileGridPosition.X, TileGridPosition.Y));
+    }
 }
 
 void ATile::SetTileStatus(const int32 TileOwner, const ETileStatus TileStatus)
@@ -80,10 +88,14 @@ void ATile::SetAsObstacle()
     // Set the tile status
     SetTileStatus(-2, ETileStatus::OCCUPIED);
 
-    // The actual visual changes will be handled in Blueprint
+    // Call the blueprint event to update the visual appearance
+    if (UFunction* Function = FindFunction(TEXT("SetObstacleMaterial")))
+    {
+        ProcessEvent(Function, nullptr);
+    }
 }
 
-void ATile::SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMaterial)
+void ATile::SetHighlightForMovement()
 {
     // Store the original material the first time we highlight
     if (!OriginalMaterial && StaticMeshComponent)
@@ -91,11 +103,27 @@ void ATile::SetHighlight(bool bHighlighted, UMaterialInterface* HighlightMateria
         OriginalMaterial = StaticMeshComponent->GetMaterial(0);
     }
 
-    // Apply the highlight material
-    if (StaticMeshComponent && HighlightMaterial)
+    // Call the blueprint event to update the visual appearance
+    if (UFunction* Function = FindFunction(TEXT("HighlightForMovement")))
     {
-        StaticMeshComponent->SetMaterial(0, HighlightMaterial);
-        this->bIsHighlighted = bHighlighted; // Use 'this->' to clarify we're using the class member
+        ProcessEvent(Function, nullptr);
+        //this->bIsHighlighted = bHighlighted; // Use 'this->' to clarify we're using the class member
+    }
+}
+
+void ATile::SetHighlightForAttack()
+{
+    // Store the original material the first time we highlight
+    if (!OriginalMaterial && StaticMeshComponent)
+    {
+        OriginalMaterial = StaticMeshComponent->GetMaterial(0);
+    }
+
+    // Call the blueprint event to update the visual appearance
+    if (UFunction* Function = FindFunction(TEXT("HighlightForAttack")))
+    {
+        ProcessEvent(Function, nullptr);
+        //this->bIsHighlighted = bHighlighted; // Use 'this->' to clarify we're using the class member
     }
 }
 

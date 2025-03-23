@@ -902,9 +902,9 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 	// Apply the highlight material to each tile
 	for (ATile* Tile : HighlightedMovementTiles)
 	{
-		if (Tile && MovementHighlightMaterial)
+		if (Tile)
 		{
-			Tile->SetHighlight(true, MovementHighlightMaterial);
+			Tile->SetHighlightForMovement();
 		}
 
 		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan,
@@ -953,9 +953,9 @@ void ATBS_HumanPlayer::HighlightAttackTiles()
 	// Apply the highlight material to each tile
 	for (ATile* Tile : HighlightedAttackTiles)
 	{
-		if (Tile && AttackHighlightMaterial)
+		if (Tile)
 		{
-			Tile->SetHighlight(true, AttackHighlightMaterial);
+			Tile->SetHighlightForAttack();
 		}
 	}
 
