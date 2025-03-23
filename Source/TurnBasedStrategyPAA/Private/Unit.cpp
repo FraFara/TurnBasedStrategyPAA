@@ -3,6 +3,7 @@
 
 #include "Unit.h"
 #include "Grid.h"
+#include "TBS_GameMode.h"
 #include "Kismet/GameplayStatics.h"
 
 // Sets default values
@@ -35,6 +36,7 @@ AUnit::AUnit()
     bHasMoved = false;
     bHasAttacked = false;
     CurrentTile = nullptr;
+
 }
 
 void AUnit::UpdateAppearanceByTeam()
@@ -224,7 +226,7 @@ TArray<ATile*> AUnit::GetMovementTiles()
             };
 
             // For every adjacent tile...
-            for (FVector2D& Dir : Directions)       // const?
+            for (FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
 
@@ -233,8 +235,10 @@ TArray<ATile*> AUnit::GetMovementTiles()
                 {
                     ATile* NextTile = Grid->TileMap[NewPos];
 
-                    // If the tile is empty and hasn't been visited yet
-                    if (NextTile->GetTileStatus() == ETileStatus::EMPTY && !Distance.Contains(NextTile))
+                    // Only add tile if it's empty AND not an obstacle (owner != -2)
+                    if (NextTile->GetTileStatus() == ETileStatus::EMPTY &&
+                        NextTile->GetOwner() != -2 &&  // Check it's not an obstacle
+                        !Distance.Contains(NextTile))
                     {
                         Queue.Add(NextTile);
                         Distance.Add(NextTile, CurrentDistance + 1);
@@ -244,7 +248,7 @@ TArray<ATile*> AUnit::GetMovementTiles()
         }
     }
 
-    // Adds all tiles in the Distance map except the current tile
+    // Add all tiles except current
     for (auto& Elem : Distance)
     {
         if (Elem.Key != CurrentTile)
@@ -350,6 +354,14 @@ void AUnit::ReceiveDamage(int32 DamageAmount)
     // If health reaches 0, unit dies
     if (Health <= 0)
     {
+        // Get the game mode and notify it that a unit was destroyed
+        ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+        if (GameMode)
+        {
+            // Notify the game mode about which player's unit was destroyed
+            GameMode->NotifyUnitDestroyed(OwnerID);
+        }
+
         CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
         CurrentTile->SetOccupyingUnit(nullptr); // Clear the tile's unit reference
 

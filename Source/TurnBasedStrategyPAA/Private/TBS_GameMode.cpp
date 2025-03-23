@@ -393,6 +393,70 @@ void ATBS_GameMode::ShowCoinTossResult()
     }
 }
 
+void ATBS_GameMode::ShowRoundEndResult(int32 WinnerIndex)
+{
+    if (!RoundEndWidgetClass)
+        return;
+
+    // Get the game instance for round and score information
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (!GameInstance)
+        return;
+
+    // Create messages for the round end
+    FString WinnerName = (WinnerIndex == 0) ? TEXT("Human Player") : TEXT("AI");
+    FString RoundEndMessage = FString::Printf(TEXT("Round %d: %s Won!"),
+        GameInstance->GetCurrentRound(), *WinnerName);
+
+    // Display in debug log
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, RoundEndMessage);
+
+    // Create the widget and display it
+    RoundEndWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), RoundEndWidgetClass);
+    if (RoundEndWidget)
+    {
+        // Call the function to set winner info
+        if (UFunction* SetWinnerInfoFunc = RoundEndWidget->FindFunction(TEXT("SetWinnerInfo")))
+        {
+            struct
+            {
+                int32 WinnerIndex;
+            } Params;
+
+            Params.WinnerIndex = WinnerIndex;
+            RoundEndWidget->ProcessEvent(SetWinnerInfoFunc, &Params);
+        }
+
+        RoundEndWidget->AddToViewport();
+
+        // Auto-remove after 3 seconds and start new round
+        FTimerHandle TimerHandle;
+        GetWorldTimerManager().SetTimer(TimerHandle, [this]()
+            {
+                if (RoundEndWidget && RoundEndWidget->IsInViewport())
+                {
+                    RoundEndWidget->RemoveFromParent();
+                    RoundEndWidget = nullptr;
+
+                    // Start a new round
+                    int32 StartingPlayer = SimulateCoinToss();
+                    StartPlacementPhase(StartingPlayer);
+                }
+            }, 3.0f, false);
+    }
+}
+
+FString ATBS_GameMode::WinningPlayerMessage(int32 WinnerIndex)
+{
+    if (WinnerIndex == 0)
+    {
+        return FString::Printf(TEXT("Human Player Won!"));
+    }
+    
+    return FString::Printf(TEXT("AI Player Won!"));
+
+}
+
 void ATBS_GameMode::DebugForceGameplay()
 {
     GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("FORCING GAMEPLAY PHASE START"));
@@ -795,11 +859,20 @@ bool ATBS_GameMode::CheckGameOver()
 
         UnitsRemaining[i] = RemainingUnits;
 
+        // Detailed debug logging to understand unit counts
+        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
+            FString::Printf(TEXT("Player %d has %d units remaining"), i, RemainingUnits));
+
         // If a player has no units, the other player wins
         if (RemainingUnits == 0)
         {
             bGameOver = true;
             WinningPlayer = (i + 1) % NumberOfPlayers; // Other player wins
+
+            // Add more explicit messaging
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
+                FString::Printf(TEXT("Player %d has no units left! Player %d wins this round!"),
+                    i, WinningPlayer));
         }
     }
 
@@ -862,6 +935,94 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
             }
         }
     }
+
+    // Setup for endround widget
+    WinningPlayerMessage(PlayerIndex);
+
+    // Instead of just ending the game, reset for the next round
+    FTimerHandle RoundResetTimerHandle;
+    GetWorldTimerManager().SetTimer(RoundResetTimerHandle, [this, PlayerIndex]()
+        {
+            ResetForNewRound(PlayerIndex);
+        }, 1.0f, false); // 1 second delay before resetting the round
+}
+
+void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
+{
+    // First, show the round end widget with results
+    ShowRoundEndResult(WinnerIndex);
+
+    // Get the game instance to update the round counter and score
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        // Update score
+        if (WinnerIndex == 0)
+        {
+            GameInstance->IncrementScoreHumanPlayer();
+        }
+        else
+        {
+            GameInstance->IncrementScoreAiPlayer();
+        }
+
+        // Update round counter
+        GameInstance->IncrementRound();
+
+        // Clear move history for the new round
+        GameInstance->ClearMoveHistory();
+    }
+
+    // Reset game variables
+    bIsGameOver = false;
+    UnitsPlaced = 0;
+    CurrentPhase = EGamePhase::ROUND_END;
+
+    // Reset unit placement tracking
+    BrawlerPlaced.Init(false, NumberOfPlayers);
+    SniperPlaced.Init(false, NumberOfPlayers);
+
+    // Reset remaining units count
+    UnitsRemaining.SetNum(NumberOfPlayers);
+    for (int32 i = 0; i < NumberOfPlayers; i++)
+    {
+        UnitsRemaining[i] = UnitsPerPlayer;
+    }
+
+    // Remove all units from the grid
+    TArray<AActor*> AllUnits;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
+    for (AActor* UnitActor : AllUnits)
+    {
+        if (UnitActor)
+        {
+            // Get the unit reference
+            AUnit* Unit = Cast<AUnit>(UnitActor);
+            if (Unit)
+            {
+                // Clean up its tile
+                ATile* CurrentTile = Unit->GetCurrentTile();
+                if (CurrentTile)
+                {
+                    CurrentTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+                    CurrentTile->SetOccupyingUnit(nullptr);
+                }
+            }
+            // Destroy the unit
+            UnitActor->Destroy();
+        }
+    }
+
+    // Reset the grid and regenerate obstacles
+    if (GameGrid)
+    {
+        GameGrid->ResetGrid();
+        // Spawn new obstacles for the next round
+        SpawnObstacles();
+    }
+
+    // Debug messaging
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Board reset for new round"));
 }
 
 void ATBS_GameMode::SpawnObstacles()

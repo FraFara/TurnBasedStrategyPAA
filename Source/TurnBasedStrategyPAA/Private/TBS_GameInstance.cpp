@@ -25,6 +25,17 @@ int32 UTBS_GameInstance::GetScoreAiPlayer() const
     return ScoreAIPlayer;
 }
 
+// Round Counter Functions
+void UTBS_GameInstance::IncrementRound()
+{
+    CurrentRound++;
+}
+
+int32 UTBS_GameInstance::GetCurrentRound() const
+{
+    return CurrentRound;
+}
+
 // Turn Message Functions
 FString UTBS_GameInstance::GetTurnMessage() const
 {
@@ -121,5 +132,6 @@ void UTBS_GameInstance::ResetGameStatistics()
     TotalGamesPlayed = 0;
     ScoreHumanPlayer = 0;
     ScoreAIPlayer = 0;
+    CurrentRound = 1;
     ClearMoveHistory();
 }

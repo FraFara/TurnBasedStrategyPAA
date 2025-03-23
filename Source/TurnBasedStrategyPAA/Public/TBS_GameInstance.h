@@ -24,6 +24,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Statistics")
     int32 ScoreAIPlayer = 0;
 
+    // Round counter
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game Statistics")
+    int32 CurrentRound = 1;
+
     // Turn message
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game UI")
     FString TurnMessage = TEXT("Current Player");
@@ -48,6 +52,13 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Game Statistics")
     int32 GetScoreAiPlayer() const;
+
+    // Functions to manage round counter
+    UFUNCTION(BlueprintCallable, Category = "Game Statistics")
+    void IncrementRound();
+
+    UFUNCTION(BlueprintCallable, Category = "Game Statistics")
+    int32 GetCurrentRound() const;
 
     // Functions to manage turn messages
     UFUNCTION(BlueprintCallable, Category = "Game UI")

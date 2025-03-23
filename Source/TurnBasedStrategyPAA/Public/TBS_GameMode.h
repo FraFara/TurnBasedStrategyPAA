@@ -15,7 +15,8 @@ enum class EGamePhase : uint8
 {
 	NONE        UMETA(DisplayName = "None"),
 	SETUP		UMETA(DisplayName = "Setup"),
-	GAMEPLAY	UMETA(DisplayName = "Gameplay")
+	GAMEPLAY	UMETA(DisplayName = "Gameplay"),
+	ROUND_END   UMETA(DisplayName = "Round End")
 };
 
 /**
@@ -101,6 +102,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<UUserWidget> CoinTossWidgetClass;
 
+	// Round end widget class
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UUserWidget> RoundEndWidgetClass;
+
 	// Unit Selection functions
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowUnitSelectionUI(bool bContextAware = false);
@@ -115,16 +120,27 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void ShowCoinTossResult();
 
+	// Round end display
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowRoundEndResult(int32 WinnerIndex);
+
+	// Returns winning player name
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	FString WinningPlayerMessage(int32 WinnerIndex);
+
 	// Force transition to gameplay
 	UFUNCTION(Exec, BlueprintCallable, Category = "Debug")
 	void DebugForceGameplay();
 
-	// Add these in the private section
+	// UserWidgets
 	UPROPERTY()
 	UUserWidget* UnitSelectionWidget;
 
 	UPROPERTY()
 	UUserWidget* CoinTossWidget;
+
+	UPROPERTY()
+	UUserWidget* RoundEndWidget;
 
 	// Simulate coin toss to determine who starts
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
@@ -161,6 +177,10 @@ public:
 	// Call when a player wins
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	void PlayerWon(int32 PlayerIndex);
+
+	// Reset for new round
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void ResetForNewRound(int32 WinnerIndex);
 
 	// Spawn obstacles on the grid
 	UFUNCTION(BlueprintCallable, Category = "Game Setup")
