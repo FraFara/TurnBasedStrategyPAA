@@ -221,13 +221,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")
 	void ResetForNewRound(int32 WinnerIndex);
 
-	// Spawn obstacles on the grid
-	UFUNCTION(BlueprintCallable, Category = "Game Setup")
-	void SpawnObstacles();
-
 	// Record a move to the game instance
 	UFUNCTION(BlueprintCallable, Category = "Game History")
 	void RecordMove(int32 PlayerIndex, FString UnitType, FString ActionType,
 		FVector2D FromPosition, FVector2D ToPosition, int32 Damage);
+
+	// Checks if placing an obstacle at the given position would break connectivity
+	bool WouldBreakConnectivity(int32 GridX, int32 GridY);
+
+	// Modified SpawnObstacles function to ensure connectivity
+	void SpawnObstaclesWithConnectivity();
 
 };

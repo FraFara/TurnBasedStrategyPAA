@@ -125,7 +125,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Unit")
     bool IsDead() const;
 
-    // Resets the unit's TURN (called at the start of a new turn. Only clears movement and attacks)
+    // Resets the unit's turn (called at the start of a new turn. Only clears movement and attacks)
     UFUNCTION(BlueprintCallable, Category = "Unit")
     void ResetTurn();
 
@@ -201,7 +201,7 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
     int32 MaxHealth;
 
-    // Unit owner (0 for player, 1 for AI)
+    // Unit owner (0 for player, 1 for AI, -2 for obstacles)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Unit Properties")
     int32 OwnerID;
 

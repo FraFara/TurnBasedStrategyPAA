@@ -179,6 +179,108 @@ void AGrid::ValidateAllObstacles()
 	}
 }
 
+bool AGrid::ValidateConnectivity()
+{
+	// Count how many empty tiles we have
+	TArray<ATile*> EmptyTiles;
+	int32 totalTiles = 0;
+	int32 emptyTiles = 0;
+	int32 occupiedTiles = 0;
+	int32 obstacleTiles = 0;
+
+	// First pass: count different types of tiles
+	for (ATile* Tile : TileArray)
+	{
+		totalTiles++;
+
+		if (!Tile)
+			continue;
+
+		if (Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->IsObstacle())
+		{
+			EmptyTiles.Add(Tile);
+			emptyTiles++;
+		}
+		else if (Tile->IsObstacle() || Tile->GetOwner() == -2)
+		{
+			obstacleTiles++;
+		}
+		else
+		{
+			occupiedTiles++;
+		}
+	}
+
+	// Debug counts
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan,
+		FString::Printf(TEXT("Connectivity Check: Empty=%d, Obstacles=%d, Occupied=%d, Total=%d"),
+			emptyTiles, obstacleTiles, occupiedTiles, totalTiles));
+
+	// If there are 0 or 1 empty tiles, they're trivially connected
+	if (EmptyTiles.Num() <= 1)
+	{
+		return true;
+	}
+
+	// Use BFS to check connectivity from the first empty tile
+	ATile* StartTile = EmptyTiles[0];
+	TArray<ATile*> Queue;
+	TSet<ATile*> Visited;
+
+	Queue.Add(StartTile);
+	Visited.Add(StartTile);
+
+	while (Queue.Num() > 0)
+	{
+		ATile* CurrentTile = Queue[0];
+		Queue.RemoveAt(0);
+
+		FVector2D CurrentPos = CurrentTile->GetGridPosition();
+
+		// Check all four adjacent tiles
+		TArray<FVector2D> Directions = {
+			FVector2D(0, 1),
+			FVector2D(0, -1),
+			FVector2D(1, 0),
+			FVector2D(-1, 0)
+		};
+
+		for (const FVector2D& Dir : Directions)
+		{
+			FVector2D NewPos = CurrentPos + Dir;
+
+			// Skip if outside grid bounds
+			if (!TileMap.Contains(NewPos))
+				continue;
+
+			ATile* NextTile = TileMap[NewPos];
+
+			// Skip if null, already visited, or obstacle
+			if (!NextTile || Visited.Contains(NextTile))
+				continue;
+
+			// Only consider empty (walkable) tiles
+			if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->IsObstacle() || NextTile->GetOwner() == -2)
+				continue;
+
+			if (NextTile->GetOccupyingUnit() != nullptr)
+				continue;
+
+			Queue.Add(NextTile);
+			Visited.Add(NextTile);
+		}
+	}
+
+	// Debug visited tile count
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan,
+		FString::Printf(TEXT("Connectivity Check: Visited %d out of %d empty tiles"),
+			Visited.Num(), EmptyTiles.Num()));
+
+	// All empty tiles should have been visited if they're connected
+	return Visited.Num() == EmptyTiles.Num();
+}
+
+
 //returns true if the tile is in the grid
 inline bool AGrid::IsValidPosition(const FVector2D Position) const
 {

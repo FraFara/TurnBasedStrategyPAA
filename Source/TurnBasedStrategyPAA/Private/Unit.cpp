@@ -135,9 +135,9 @@ void AUnit::InitializePosition(ATile* Tile)
 {
     if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
     {
-        // Debug message
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-            FString::Printf(TEXT("InitializePosition called for %sOwner: %d"), *GetUnitName(), OwnerID));
+        //// Debug message
+        //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        //    FString::Printf(TEXT("InitializePosition called for %sOwner: %d"), *GetUnitName(), OwnerID));
 
         CurrentTile = Tile;
 

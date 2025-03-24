@@ -47,7 +47,7 @@ void ATBS_HumanPlayer::BeginPlay()
 	UnitToPlace = EUnitType::NONE;
 
 	// Log that the human player is ready
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
+	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
 }
 
 // Called every frame
@@ -75,9 +75,6 @@ void ATBS_HumanPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 void ATBS_HumanPlayer::OnTurn_Implementation()
 {
 	IsMyTurn = true;
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-		TEXT("HUMAN PLAYER TURN STARTED"));
 
 	// Find all your units at the start of your turn
 	FindMyUnits();
