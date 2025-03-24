@@ -46,8 +46,6 @@ void ATBS_HumanPlayer::BeginPlay()
 	// Initialize UnitToPlace to NONE
 	UnitToPlace = EUnitType::NONE;
 
-	// Log that the human player is ready
-	//GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
 }
 
 // Called every frame
@@ -93,21 +91,10 @@ void ATBS_HumanPlayer::OnTurn_Implementation()
 	{
 		GameInstance->SetTurnMessage(TEXT("Your Turn - Select a unit"));
 	}
-
-	// Debug each unit found
-	for (AUnit* Unit : MyUnits)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-			FString::Printf(TEXT("Your Unit: %s at (%f,%f)"),
-				*Unit->GetUnitName(),
-				Unit->GetCurrentTile()->GetGridPosition().X,
-				Unit->GetCurrentTile()->GetGridPosition().Y));
-	}
 }
 
 void ATBS_HumanPlayer::OnWin_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("You Win!"));
 
 	// Ensure the game instance is set
 	if (!GameInstance)
@@ -124,22 +111,19 @@ void ATBS_HumanPlayer::OnWin_Implementation()
 
 void ATBS_HumanPlayer::OnLose_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("You Lose!"));
 }
 
 void ATBS_HumanPlayer::OnPlacement_Implementation()
 {
-	// Check if this is really our turn (match with game mode's current player)
+	// Check if this is player turn (match with game mode's current player)
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode && GameMode->CurrentPlayer != PlayerNumber)
 	{
 		// It's not actually our turn - don't do anything
 		IsMyTurn = false;
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Not human player's turn for placement"));
 		return;
 	}
 
-	// If we get here, it's definitely our turn
 	IsMyTurn = true;
 	CurrentAction = EPlayerAction::PLACEMENT;
 
@@ -158,7 +142,6 @@ void ATBS_HumanPlayer::OnPlacement_Implementation()
 
 	if (GameMode)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Showing unit selection UI for human player"));
 		GameMode->ShowUnitSelectionUI(true);
 	}
 }
@@ -171,23 +154,14 @@ void ATBS_HumanPlayer::FindMyUnits()
 	TArray<AActor*> AllUnits;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("Total Units Found: %d"), AllUnits.Num()));
-
-
 	for (AActor* Actor : AllUnits)
 	{
 		AUnit* Unit = Cast<AUnit>(Actor);
 		if (Unit && Unit->GetOwnerID() == PlayerNumber)
 		{
 			MyUnits.Add(Unit);
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan,
-				FString::Printf(TEXT("My Unit: %s"), *Unit->GetUnitName()));
 		}
 	}
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-		FString::Printf(TEXT("My Units Count: %d"), MyUnits.Num()));
 }
 
 void ATBS_HumanPlayer::OnClick()
@@ -196,7 +170,6 @@ void ATBS_HumanPlayer::OnClick()
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (!GameMode || !GameMode->GameGrid)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("GameMode or Grid is null in OnClick"));
 		return;
 	}
 
@@ -207,7 +180,6 @@ void ATBS_HumanPlayer::OnClick()
 
 	if (!bHitSuccessful)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No hit under cursor"));
 		return;
 	}
 
@@ -243,7 +215,6 @@ void ATBS_HumanPlayer::OnClick()
 	// Validate the clicked tile
 	if (!ClickedTile)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to find a valid tile"));
 		return;
 	}
 
@@ -251,8 +222,6 @@ void ATBS_HumanPlayer::OnClick()
 	if (GameMode->CurrentPhase == EGamePhase::GAMEPLAY && CurrentAction == EPlayerAction::PLACEMENT)
 	{
 		CurrentAction = EPlayerAction::NONE;
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("Fixing action state: Was in PLACEMENT during GAMEPLAY"));
 	}
 
 	// Handle Setup/Placement Phase
@@ -261,27 +230,17 @@ void ATBS_HumanPlayer::OnClick()
 		// Validate turn readiness
 		if (!IsMyTurn)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				TEXT("Cannot place unit. Not your turn."));
 			return;
 		}
 
 		// Check tile status
 		if (ClickedTile->GetTileStatus() != ETileStatus::EMPTY)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				TEXT("Selected tile is not empty"));
 			return;
 		}
 
 		// Set the current placement tile
 		CurrentPlacementTile = ClickedTile;
-
-		// Detailed debug logging
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-			FString::Printf(TEXT("Tile selected for placement at (%f, %f)"),
-				ClickedTile->GetGridPosition().X,
-				ClickedTile->GetGridPosition().Y));
 
 		// Show unit selection UI
 		GameMode->ShowUnitSelectionUI(true);
@@ -295,28 +254,11 @@ void ATBS_HumanPlayer::OnClick()
 		// Validate turn readiness
 		if (!IsMyTurn)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				FString::Printf(TEXT("Cannot select unit. Not your turn. IsMyTurn=%d, CurrentPlayer=%d"),
-					IsMyTurn ? 1 : 0, GameMode->CurrentPlayer));
 			return;
 		}
 
 		// Get the unit on the tile
 		AUnit* UnitOnTile = ClickedTile->GetOccupyingUnit();
-
-		// Enhanced debug
-		if (UnitOnTile)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-				FString::Printf(TEXT("Tile contains unit: %s, Owner: %d, Health: %d/%d"),
-					*UnitOnTile->GetUnitName(), UnitOnTile->GetOwnerID(),
-					UnitOnTile->GetUnitHealth(), UnitOnTile->GetMaxHealth()));
-		}
-		else
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-				TEXT("Clicked on empty tile"));
-		}
 
 		// Gameplay action logic
 		switch (CurrentAction)
@@ -328,11 +270,6 @@ void ATBS_HumanPlayer::OnClick()
 				// Always update LastClickedUnit for HUD display
 				LastClickedUnit = UnitOnTile;
 
-				// Log player comparing to ensure ownership check is correct
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-					FString::Printf(TEXT("Unit owner: %d, Your player number: %d"),
-						UnitOnTile->GetOwnerID(), PlayerNumber));
-
 				// Unit selection logic - ensure ownership check is correct
 				if (UnitOnTile->GetOwnerID() == PlayerNumber)
 				{
@@ -341,19 +278,11 @@ void ATBS_HumanPlayer::OnClick()
 					{
 						// Deselect if already selected
 						SelectedUnit = nullptr;
-						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Unit deselected"));
 					}
 					else
 					{
 						SelectedUnit = UnitOnTile;
-						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-							FString::Printf(TEXT("Unit selected: %s"), *UnitOnTile->GetUnitName()));
 					}
-				}
-				else
-				{
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-						TEXT("Cannot select enemy unit!"));
 				}
 			}
 			break;
@@ -405,23 +334,6 @@ void ATBS_HumanPlayer::OnClick()
 						}
 					}
 				}
-				else
-				{
-					// More detailed error logging
-					GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-						FString::Printf(TEXT("Cannot move to tile at (%f, %f)"),
-							ClickedTile->GetGridPosition().X,
-							ClickedTile->GetGridPosition().Y));
-
-					// Print out all valid movement tiles for comparison
-					for (ATile* MovementTile : MovementTiles)
-					{
-						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-							FString::Printf(TEXT("Valid Movement Tile: (%f, %f)"),
-								MovementTile->GetGridPosition().X,
-								MovementTile->GetGridPosition().Y));
-					}
-				}
 			}
 			break;
 
@@ -465,228 +377,6 @@ void ATBS_HumanPlayer::OnClick()
 	}
 }
 
-//void ATBS_HumanPlayer::OnClick()
-//{
-//	// Get the game mode for reference
-//	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-//	if (!GameMode || !GameMode->GameGrid)
-//	{
-//		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("GameMode or Grid is null in OnClick"));
-//		return;
-//	}
-//
-//	// Get hit result under cursor
-//	FHitResult Hit;
-//	bool bHitSuccessful = GetWorld()->GetFirstPlayerController()->GetHitResultUnderCursor(
-//		ECollisionChannel::ECC_Visibility, false, Hit);
-//
-//	if (!bHitSuccessful)
-//	{
-//		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No hit under cursor"));
-//		return;
-//	}
-//
-//	// Try to cast to a tile
-//	ATile* ClickedTile = Cast<ATile>(Hit.GetActor());
-//
-//	if (!ClickedTile)
-//	{
-//		// Fallback to converting the hit location to grid coordinates
-//		AGrid* Grid = GameMode->GameGrid;
-//		FVector2D GridPos = Grid->GetXYPositionByRelativeLocation(Hit.Location);
-//		int32 GridX = FMath::FloorToInt(GridPos.X);
-//		int32 GridY = FMath::FloorToInt(GridPos.Y);
-//
-//		// Check if grid position is valid
-//		if (GridX < 0 || GridX >= Grid->Size || GridY < 0 || GridY >= Grid->Size)
-//		{
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Grid position out of bounds"));
-//			return;
-//		}
-//
-//		// Get the tile at this grid position
-//		FVector2D TilePos(GridX, GridY);
-//		if (!Grid->TileMap.Contains(TilePos))
-//		{
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No tile at this grid position"));
-//			return;
-//		}
-//
-//		ClickedTile = Grid->TileMap[TilePos];
-//	}
-//
-//	if (!ClickedTile)
-//	{
-//		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to find a valid tile"));
-//		return;
-//	}
-//
-//	// Debug the clicked tile
-//	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-//		FString::Printf(TEXT("Clicked on tile at (%f,%f)"),
-//			ClickedTile->GetGridPosition().X, ClickedTile->GetGridPosition().Y));
-//
-//	// Now handle different cases based on current action
-//	switch (CurrentAction)
-//	{
-//	case EPlayerAction::MOVEMENT:
-//		// If we're in movement mode and have a selected unit
-//		if (SelectedUnit && !SelectedUnit->HasMoved())
-//		{
-//			// First check if this tile is in our highlighted movement tiles
-//			if (HighlightedMovementTiles.Contains(ClickedTile))
-//			{
-//				FVector2D FromPos = SelectedUnit->GetCurrentTile()->GetGridPosition();
-//				FVector2D ToPos = ClickedTile->GetGridPosition();
-//
-//				GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-//					FString::Printf(TEXT("Moving unit from (%f,%f) to (%f,%f)"),
-//						FromPos.X, FromPos.Y, ToPos.X, ToPos.Y));
-//
-//				if (SelectedUnit->MoveToTile(ClickedTile))
-//				{
-//					// Record move in history
-//					if (GameInstance)
-//					{
-//						GameInstance->AddMoveToHistory(PlayerNumber,
-//							SelectedUnit->GetUnitName(),
-//							TEXT("Move"), FromPos, ToPos, 0);
-//					}
-//
-//					ClearHighlightedTiles();
-//
-//					// Check if unit can still attack
-//					if (!SelectedUnit->HasAttacked() && GameInstance)
-//					{
-//						GameInstance->SetTurnMessage(TEXT("Attack available"));
-//					}
-//					else
-//					{
-//						SelectedUnit = nullptr;
-//						// Check if all units have completed their actions
-//						CheckAllUnitsFinished();
-//					}
-//				}
-//				else
-//				{
-//					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Failed to move unit to tile"));
-//				}
-//			}
-//			else
-//			{
-//				GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("Selected tile is not in movement range"));
-//			}
-//		}
-//		else
-//		{
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
-//				FString::Printf(TEXT("Cannot move: SelectedUnit=%s, HasMoved=%s"),
-//					SelectedUnit ? TEXT("valid") : TEXT("null"),
-//					SelectedUnit && SelectedUnit->HasMoved() ? TEXT("true") : TEXT("false")));
-//		}
-//		break;
-//
-//	case EPlayerAction::ATTACK:
-//		// If we're in attack mode and have a selected unit
-//		if (SelectedUnit && !SelectedUnit->HasAttacked())
-//		{
-//			// Check if target tile is in highlighted attack tiles
-//			if (HighlightedAttackTiles.Contains(ClickedTile))
-//			{
-//				// Get the unit on the target tile
-//				AUnit* TargetUnit = ClickedTile->GetOccupyingUnit();
-//
-//				if (TargetUnit)
-//				{
-//					FVector2D FromPos = SelectedUnit->GetCurrentTile()->GetGridPosition();
-//					FVector2D TargetPos = ClickedTile->GetGridPosition();
-//
-//					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-//						FString::Printf(TEXT("Attacking unit at (%f,%f)"),
-//							TargetPos.X, TargetPos.Y));
-//
-//					int32 Damage = SelectedUnit->Attack(TargetUnit);
-//
-//					if (Damage > 0 && GameInstance)
-//					{
-//						// Record attack in history
-//						GameInstance->AddMoveToHistory(PlayerNumber,
-//							SelectedUnit->GetUnitName(),
-//							TEXT("Attack"), FromPos, TargetPos, Damage);
-//
-//						GameInstance->SetTurnMessage(
-//							FString::Printf(TEXT("%s dealt %d damage to %s"),
-//								*SelectedUnit->GetUnitName(), Damage, *TargetUnit->GetUnitName()));
-//					}
-//
-//					ClearHighlightedTiles();
-//					SelectedUnit = nullptr;
-//
-//					// Check if all units have completed their actions
-//					CheckAllUnitsFinished();
-//				}
-//				else
-//				{
-//					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("No unit found on target tile"));
-//				}
-//			}
-//			else
-//			{
-//				GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("Selected tile is not in attack range"));
-//			}
-//		}
-//		else
-//		{
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
-//				FString::Printf(TEXT("Cannot attack: SelectedUnit=%s, HasAttacked=%s"),
-//					SelectedUnit ? TEXT("valid") : TEXT("null"),
-//					SelectedUnit && SelectedUnit->HasAttacked() ? TEXT("true") : TEXT("false")));
-//		}
-//		break;
-//
-//	case EPlayerAction::NONE:
-//	default:
-//		// Handle unit selection
-//		AUnit* UnitOnTile = ClickedTile->GetOccupyingUnit();
-//
-//		if (UnitOnTile)
-//		{
-//			// Log player comparing to ensure ownership check is correct
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-//				FString::Printf(TEXT("Unit owner: %d, Your player number: %d"),
-//					UnitOnTile->GetOwnerID(), PlayerNumber));
-//
-//			// Unit selection logic - ensure ownership check is correct
-//			if (UnitOnTile->GetOwnerID() == PlayerNumber)
-//			{
-//				// Update selected unit
-//				if (SelectedUnit == UnitOnTile)
-//				{
-//					// Deselect if already selected
-//					SelectedUnit = nullptr;
-//					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, TEXT("Unit deselected"));
-//				}
-//				else
-//				{
-//					SelectedUnit = UnitOnTile;
-//					GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-//						FString::Printf(TEXT("Unit selected: %s"), *UnitOnTile->GetUnitName()));
-//				}
-//			}
-//			else
-//			{
-//				GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red,
-//					TEXT("Cannot select enemy unit!"));
-//			}
-//		}
-//		else
-//		{
-//			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, TEXT("No unit on selected tile"));
-//		}
-//		break;
-//	}
-//}
-
 void ATBS_HumanPlayer::OnRightClick()
 {
 	// Cancel the current action
@@ -697,9 +387,6 @@ void ATBS_HumanPlayer::OnRightClick()
 
 		// Reset action
 		CurrentAction = EPlayerAction::NONE;
-
-		// Show message to player
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, TEXT("Action canceled"));
 	}
 	// If no action is active but a unit is selected, deselect it
 	else if (SelectedUnit)
@@ -707,8 +394,7 @@ void ATBS_HumanPlayer::OnRightClick()
 		SelectedUnit = nullptr;
 
 		ClearHighlightedTiles();
-
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::White, TEXT("Unit deselected"));
+		
 	}
 }
 
@@ -738,10 +424,6 @@ void ATBS_HumanPlayer::SkipUnitTurn()
 		// Mark the unit as having moved and attacked
 		SelectedUnit->bHasMoved = true;
 		SelectedUnit->bHasAttacked = true;
-
-		// Display a message
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-			FString::Printf(TEXT("%s turn skipped"), *SelectedUnit->GetUnitName()));
 
 		// Clears the selection
 		SelectedUnit = nullptr;
@@ -774,8 +456,6 @@ void ATBS_HumanPlayer::CheckAllUnitsFinished()
 
 	if (allFinished && MyUnits.Num() > 0)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("All units have finished their actions - ending turn"));
-
 		// Get the game mode and end turn
 		ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 		if (GameMode)
@@ -795,20 +475,8 @@ void ATBS_HumanPlayer::SetTurnState_Implementation(bool bNewTurnState)
 	// Safely set the turn state
 	IsMyTurn = bNewTurnState;
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-		FString::Printf(TEXT("Human Player turn state changed to: %d"), IsMyTurn ? 1 : 0));
-
 	// Get the game mode to check if the current player matches
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-	if (GameMode)
-	{
-		if (IsMyTurn && GameMode->CurrentPlayer != PlayerNumber)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-				FString::Printf(TEXT("WARNING: Turn state mismatch! IsMyTurn=%d but CurrentPlayer=%d"),
-					IsMyTurn ? 1 : 0, GameMode->CurrentPlayer));
-		}
-	}
 
 	// Use Execute_ method to call the UI update
 	if (bNewTurnState)
@@ -856,10 +524,6 @@ void ATBS_HumanPlayer::UpdateUI_Implementation()
 			GameInstance->SetTurnMessage(Message);
 		}
 	}
-
-	// Additional UI updates can be added here
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("UpdateUI called. IsMyTurn: %d"), IsMyTurn ? 1 : 0));
 }
 
 
@@ -872,18 +536,13 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 	// Clear any previous highlights
 	ClearHighlightedTiles();
 
-	// Enhanced debug for selected unit
 	if (!SelectedUnit)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("Cannot highlight movement tiles: No unit selected!"));
 		return;
 	}
 
 	if (SelectedUnit->HasMoved())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("This unit has already moved this turn!"));
 		return;
 	}
 
@@ -901,9 +560,6 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 		}
 	}
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("Found %d movement tiles"), HighlightedMovementTiles.Num()));
-
 	// Apply the highlight material to each tile
 	for (ATile* Tile : HighlightedMovementTiles)
 	{
@@ -912,10 +568,6 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 			Tile->SetHighlightForMovement();
 		}
 
-		GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Cyan,
-			FString::Printf(TEXT("Move Tile: (%f,%f)"),
-				Tile->GetGridPosition().X,
-				Tile->GetGridPosition().Y));
 	}
 
 	CurrentAction = EPlayerAction::MOVEMENT;
@@ -929,31 +581,16 @@ void ATBS_HumanPlayer::HighlightAttackTiles()
 	// Ensure a unit is selected and can attack
 	if (!SelectedUnit)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("Cannot highlight attack tiles. No unit selected."));
 		return;
 	}
 
 	if (SelectedUnit->HasAttacked())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			TEXT("This unit has already attacked this turn!"));
 		return;
 	}
 
-	// Debug selected unit info
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("Selected Unit: %s, Owner: %d, Location: (%f,%f)"),
-			*SelectedUnit->GetUnitName(),
-			SelectedUnit->GetOwnerID(),
-			SelectedUnit->GetCurrentTile()->GetGridPosition().X,
-			SelectedUnit->GetCurrentTile()->GetGridPosition().Y));
-
 	// Get and highlight attack tiles
 	HighlightedAttackTiles = SelectedUnit->GetAttackTiles();
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-		FString::Printf(TEXT("Found %d attack tiles"), HighlightedAttackTiles.Num()));
 
 	// Apply the highlight material to each tile
 	for (ATile* Tile : HighlightedAttackTiles)

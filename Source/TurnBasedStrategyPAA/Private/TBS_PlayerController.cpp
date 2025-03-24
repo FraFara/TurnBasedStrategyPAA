@@ -50,9 +50,6 @@ void ATBS_PlayerController::SetGameInputMode()
     FInputModeGameOnly InputMode;
     SetInputMode(InputMode);
     bShowMouseCursor = true;
-
-    GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-        TEXT("Input mode set to Game"));
 }
 
 void ATBS_PlayerController::ClickOnGrid()

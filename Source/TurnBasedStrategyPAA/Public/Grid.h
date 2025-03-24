@@ -30,8 +30,6 @@ public:
 
 	static const int32 NOT_ASSIGNED = -1;
 
-	// BlueprintAssignable Usable with Multicast Delegates only. Exposes the property for assigning in Blueprints.
-	// declare a variable of type FOnReset (delegate)
 	UPROPERTY(BlueprintAssignable)
 	FOnReset OnResetEvent;
 
@@ -59,7 +57,7 @@ public:
 	virtual void OnConstruction(const FTransform& Transform) override;
 
 
-	//// remove all signs from the grid
+	// remove all signs from the grid
 	UFUNCTION(BlueprintCallable)
 	void ResetGrid();
 
@@ -89,9 +87,6 @@ protected:
 
 	// checking if is a valid field position
 	inline bool IsValidPosition(const FVector2D Position) const;
-
-	//// get a line given a begin and end positions
-	//TArray<int32> GetLine(const FVector2D Begin, const FVector2D End) const;
 
 	// Get spacial coordinates from grid coordinates
 	UFUNCTION(BlueprintCallable, Category = "Grid")

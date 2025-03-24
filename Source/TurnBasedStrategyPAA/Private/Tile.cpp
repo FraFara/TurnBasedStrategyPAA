@@ -93,22 +93,6 @@ bool ATile::VerifyObstacleStatus() const
 {
     bool isObstacle = (Status == ETileStatus::OCCUPIED && PlayerOwner == -2);
 
-    // Debug verification result
-    if (isObstacle)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 0.2f, FColor::Green,
-            FString::Printf(TEXT("Verified obstacle at (%f,%f)"),
-                TileGridPosition.X, TileGridPosition.Y));
-    }
-    else if (PlayerOwner == -2)
-    {
-        // Something is wrong - has owner -2 but wrong status
-        GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Red,
-            FString::Printf(TEXT("INVALID OBSTACLE at (%f,%f) - Status: %d, Owner: %d"),
-                TileGridPosition.X, TileGridPosition.Y,
-                (int32)Status, PlayerOwner));
-    }
-
     return isObstacle;
 }
 
@@ -194,31 +178,13 @@ void ATile::BeginPlay()
         OriginalMaterial = StaticMeshComponent->GetMaterial(0);
     }
 
-    //// Adjust collision bounds if needed
-    //if (StaticMeshComponent)
-    //{
-    //    // Get the bounds of the static mesh
-    //    FBoxSphereBounds Bounds = StaticMeshComponent->CalcBounds(StaticMeshComponent->GetComponentTransform());
-
-    //    // Create a box component with these bounds
-    //    UBoxComponent* BoxComponent = NewObject<UBoxComponent>(this);
-    //    BoxComponent->SetupAttachment(StaticMeshComponent);
-    //    BoxComponent->SetBoxExtent(Bounds.BoxExtent);
-    //    BoxComponent->SetRelativeLocation(Bounds.Origin);
-    //    BoxComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-    //    BoxComponent->SetCollisionResponseToAllChannels(ECR_Block);
-    //}
-
-    // Fix for inconsistent obstacle states - owner -2 should always be OCCUPIED status
+    // Fix for inconsistent obstacle states
     if (PlayerOwner == -2)
     {
         if (Status != ETileStatus::OCCUPIED)
         {
             // Correct the status
             Status = ETileStatus::OCCUPIED;
-            GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Yellow,
-                FString::Printf(TEXT("Fixed inconsistent obstacle at (%f,%f)"),
-                    TileGridPosition.X, TileGridPosition.Y));
         }
 
         // Ensure obstacle has its proper visual appearance
@@ -226,15 +192,6 @@ void ATile::BeginPlay()
         {
             ProcessEvent(Function, nullptr);
         }
-    }
-
-    // Check for reverse inconsistency - OCCUPIED status but not owner -2
-    if (Status == ETileStatus::OCCUPIED && PlayerOwner != -2 && !OccupyingUnit)
-    {
-        // This might be a phantom obstacle - log it
-        GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-            FString::Printf(TEXT("Warning: Occupied tile with no unit at (%f,%f), Owner: %d"),
-                TileGridPosition.X, TileGridPosition.Y, PlayerOwner));
     }
 }
 

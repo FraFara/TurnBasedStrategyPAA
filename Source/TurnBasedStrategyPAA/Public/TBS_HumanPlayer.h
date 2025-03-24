@@ -36,14 +36,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UCameraComponent* Camera;
 
-	// Player identification properties - moved to public
+	// Player identification properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
 	int32 PlayerNumber;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
 	EUnitColor UnitColor;
 
-	// keeps track of turn - moved to public
+	// keeps track of turn
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
 	bool IsMyTurn = false;
 

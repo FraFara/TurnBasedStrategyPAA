@@ -6,7 +6,7 @@
 #include "UObject/Interface.h"
 #include "TBS_PlayerInterface.generated.h"
 
-// This class does not need to be modified.
+
 UINTERFACE(MinimalAPI)
 class UTBS_PlayerInterface : public UInterface
 {
@@ -37,7 +37,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Game")
 	void OnLose();
 
-	// New method to explicitly set turn state
+	// Explicitly set turn state
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Turn Management")
 	void SetTurnState(bool bIsMyTurn);
 

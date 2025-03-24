@@ -135,10 +135,6 @@ void AUnit::InitializePosition(ATile* Tile)
 {
     if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY)
     {
-        //// Debug message
-        //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        //    FString::Printf(TEXT("InitializePosition called for %sOwner: %d"), *GetUnitName(), OwnerID));
-
         CurrentTile = Tile;
 
         // Update the tile status
@@ -178,7 +174,7 @@ bool AUnit::MoveToTile(ATile* Tile)
     Tile->SetOccupyingUnit(this); // Set the new tile's occupying unit
 
     // Move the unit to the tile's location
-    SetActorLocation(Tile->GetActorLocation() + FVector(0, 0, 20.0f)); // Offset slightly above the tile to avoid assets compenetrations (as suggested in class)
+    SetActorLocation(Tile->GetActorLocation() + FVector(0, 0, 20.0f)); // Offset slightly above the tile to avoid assets compenetrations (as suggested during lessons)
 
     bHasMoved = true; // Sets HasMoved to true to avoid multiple movement actions
     return true;

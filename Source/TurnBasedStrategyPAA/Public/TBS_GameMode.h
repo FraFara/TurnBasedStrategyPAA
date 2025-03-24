@@ -21,7 +21,7 @@ enum class EGamePhase : uint8
 };
 
 /**
- * Game Mode for the Turn-Based Strategy game
+ * Game Mode for the game
  */
 UCLASS()
 class TURNBASEDSTRATEGYPAA_API ATBS_GameMode : public AGameModeBase

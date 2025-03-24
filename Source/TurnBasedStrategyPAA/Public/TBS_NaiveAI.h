@@ -35,14 +35,14 @@ public:
 	UPROPERTY()
 	class UTBS_GameInstance* GameInstance;
 
-	// Player identification properties - moved to public
+	// Player identification properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
 	int32 PlayerNumber;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player")
 	EUnitColor UnitColor;
 
-	// Flag to track if AI is currently processing a turn - moved to public
+	// Flag to track if AI is currently processing a turn
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Game State")
 	bool bIsProcessingTurn;
 

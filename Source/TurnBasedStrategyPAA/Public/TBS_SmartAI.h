@@ -12,7 +12,7 @@
 // Forward declarations
 enum class EUnitColor : uint8;
 
-// Enum for AI actions (same as NaiveAI)
+// Enum for AI actions
 UENUM(BlueprintType)
 enum class ESAIAction : uint8
 {

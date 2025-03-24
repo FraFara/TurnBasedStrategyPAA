@@ -22,7 +22,7 @@ ATBS_SmartAI::ATBS_SmartAI()
     MinActionDelay = 0.5f;
     MaxActionDelay = 1.5f;
     bIsProcessingTurn = false;
-    PlayerNumber = 1; // Default AI is player 1
+    PlayerNumber = 1; // AI is player 1
     UnitColor = EUnitColor::RED;
     CurrentAction = ESAIAction::NONE;
     SelectedUnit = nullptr;
@@ -43,8 +43,6 @@ void ATBS_SmartAI::BeginPlay()
     {
         Grid = Cast<AGrid>(FoundActors[0]);
     }
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Smart AI Initialized"));
 }
 
 // Called every frame
@@ -61,7 +59,7 @@ void ATBS_SmartAI::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 void ATBS_SmartAI::OnTurn_Implementation()
 {
-    // First, explicitly check if it's actually our turn
+    // Check turn
     ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
     if (!GameMode)
     {
@@ -69,12 +67,9 @@ void ATBS_SmartAI::OnTurn_Implementation()
         return;
     }
 
-    // Early exit if it's not our turn
+    // Early exit if it's not AI turn
     if (GameMode->CurrentPlayer != PlayerNumber)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Smart AI OnTurn called but CurrentPlayer=%d, AI PlayerNumber=%d"),
-                GameMode->CurrentPlayer, PlayerNumber));
         bIsProcessingTurn = false;
         return;
     }
@@ -87,18 +82,13 @@ void ATBS_SmartAI::OnTurn_Implementation()
         GameInstance->SetTurnMessage(TEXT("Smart AI Turn"));
     }
 
-    // Add slight delay before taking action to make it more natural
+    // Add slight delay before taking action
     bIsProcessingTurn = true;
     CurrentAction = ESAIAction::NONE;
 
     // Find units at the start of turn
     FindMyUnits();
     FindEnemyUnits();
-
-    // Debug how many units we found
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Smart AI found %d own units and %d enemy units"),
-            MyUnits.Num(), EnemyUnits.Num()));
 
     float Delay = FMath::RandRange(MinActionDelay, MaxActionDelay);
     GetWorldTimerManager().SetTimer(ActionTimerHandle, this, &ATBS_SmartAI::ProcessTurnAction, Delay, false);
@@ -109,10 +99,7 @@ void ATBS_SmartAI::SetTurnState_Implementation(bool bNewTurnState)
     // Safely set the turn state
     bIsProcessingTurn = bNewTurnState;
 
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Smart AI Player turn state changed to: %d"), bIsProcessingTurn ? 1 : 0));
-
-    // Use Execute_ method to call the UI update
+    // UI update
     if (bNewTurnState)
     {
         ITBS_PlayerInterface::Execute_UpdateUI(this);
@@ -135,16 +122,10 @@ void ATBS_SmartAI::UpdateUI_Implementation()
 
         GameInstance->SetTurnMessage(Message);
     }
-
-    // Additional debug logging
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Smart AI UpdateUI called. bIsProcessingTurn: %d"), bIsProcessingTurn ? 1 : 0));
 }
 
 void ATBS_SmartAI::OnWin_Implementation()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Smart AI Wins!"));
-
     if (GameInstance)
     {
         // Set the winner to the AI player (index 1)
@@ -157,8 +138,6 @@ void ATBS_SmartAI::OnWin_Implementation()
 
 void ATBS_SmartAI::OnLose_Implementation()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Smart AI Loses!"));
-
     if (GameInstance)
     {
         GameInstance->SetTurnMessage(TEXT("Smart AI Loses!"));
@@ -167,9 +146,6 @@ void ATBS_SmartAI::OnLose_Implementation()
 
 void ATBS_SmartAI::OnPlacement_Implementation()
 {
-    // AI received placement notification
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Smart AI Placing Units"));
-
     if (GameInstance)
     {
         GameInstance->SetTurnMessage(TEXT("Smart AI Placing Units"));
@@ -218,23 +194,19 @@ void ATBS_SmartAI::FindEnemyUnits()
     }
 }
 
-// We reuse the same placement logic as NaiveAI because we want to focus on gameplay strategy
+// Same placement logic as NaiveAI, focus on gameplay strategy
 void ATBS_SmartAI::ProcessPlacementAction()
 {
     // Get the game mode
     ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
     if (!GameMode)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Smart AI: GameMode is null"));
         return;
     }
 
     // Verify it's AI's turn
     if (GameMode->CurrentPlayer != PlayerNumber)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Smart AI Placement - Not AI's turn. CurrentPlayer: %d, AI: %d"),
-                GameMode->CurrentPlayer, PlayerNumber));
         return;
     }
 
@@ -254,7 +226,6 @@ void ATBS_SmartAI::ProcessPlacementAction()
     // If no unit types are available, end processing
     if (AvailableTypes.Num() == 0)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Smart AI Placement - No available unit types"));
         CurrentAction = ESAIAction::NONE;
         bIsProcessingTurn = false;
         return;
@@ -274,10 +245,6 @@ void ATBS_SmartAI::ProcessPlacementAction()
         int32 GridX, GridY;
         if (PickRandomTileForPlacement(GridX, GridY))
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-                FString::Printf(TEXT("Smart AI Placement - Attempt %d: Selected position: (%d,%d)"),
-                    Attempt + 1, GridX, GridY));
-
             // Try to place the unit
             Success = GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
 
@@ -291,9 +258,6 @@ void ATBS_SmartAI::ProcessPlacementAction()
                         FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
                 }
 
-                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-                    FString::Printf(TEXT("Smart AI Placement - Successfully placed %s at (%d,%d)"),
-                        *UnitTypeString, GridX, GridY));
                 break;
             }
             else
@@ -310,13 +274,12 @@ void ATBS_SmartAI::ProcessPlacementAction()
         }
     }
 
-    // If we still failed after all attempts, we need to handle this gracefully
     if (!Success)
     {
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
             TEXT("Smart AI Placement - Failed after multiple attempts! Emergency handling..."));
 
-        // Find ANY valid tile on the grid
+        // Find any valid tile on the grid
         for (ATile* Tile : Grid->TileArray)
         {
             if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && Tile->GetOwner() != -2)
@@ -346,7 +309,7 @@ void ATBS_SmartAI::ProcessPlacementAction()
         }
     }
 
-    // Even if we couldn't place a unit, we need to ensure the game continues
+    // Even if couldn't place a unit -> ensure the game continues
     if (!Success)
     {
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
@@ -374,10 +337,6 @@ bool ATBS_SmartAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Smart AI - Grid is null in PickRandomTileForPlacement"));
         return false;
     }
-
-    // Debug grid state
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Smart AI - Grid TileArray has %d tiles"), Grid->TileArray.Num()));
 
     // Create a list of all empty tiles with additional verification
     TArray<ATile*> EmptyTiles;
@@ -415,12 +374,7 @@ bool ATBS_SmartAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
         }
     }
 
-    // Detailed debug for understanding tile states
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Smart AI - Found %d truly empty tiles, %d obstacles, %d occupied tiles out of %d total"),
-            emptyTiles, obstacleTiles, occupiedTiles, totalTiles));
-
-    // If we found empty tiles, pick a random one
+    // Pick random empty tile
     if (EmptyTiles.Num() > 0)
     {
         int32 MaxAttempts = 10; // Prevent infinite loop
@@ -436,10 +390,6 @@ bool ATBS_SmartAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
                 FVector2D GridPos = SelectedTile->GetGridPosition();
                 OutX = GridPos.X;
                 OutY = GridPos.Y;
-
-                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-                    FString::Printf(TEXT("Smart AI - Selected empty tile at (%d,%d) with status %d and owner %d"),
-                        OutX, OutY, (int32)SelectedTile->GetTileStatus(), SelectedTile->GetOwner()));
 
                 return true;
             }
@@ -460,15 +410,9 @@ bool ATBS_SmartAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
 
 void ATBS_SmartAI::ProcessTurnAction()
 {
-    // Debug message
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Smart AI ProcessTurnAction called"));
-
     // Find all units owned by this AI
     FindMyUnits();
     FindEnemyUnits();
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Smart AI found %d units"), MyUnits.Num()));
 
     // If no units, end turn
     if (MyUnits.Num() == 0)
@@ -485,7 +429,7 @@ void ATBS_SmartAI::ProcessTurnAction()
             // Process the unit's action with strategic thinking
             ProcessUnitAction(Unit);
 
-            // Add a small delay between units for more natural gameplay
+            // Add a small delay between units
             float Delay = FMath::RandRange(0.2f, 0.5f);
             FPlatformProcess::Sleep(Delay);
         }
@@ -577,10 +521,6 @@ bool ATBS_SmartAI::TryMoveUnit(AUnit* Unit)
         {
             GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
         }
-
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-            FString::Printf(TEXT("Smart AI moved %s from (%f,%f) to (%f,%f)"),
-                *Unit->GetUnitName(), FromPosition.X, FromPosition.Y, ToPosition.X, ToPosition.Y));
     }
 
     return Success;
@@ -615,10 +555,6 @@ bool ATBS_SmartAI::TryAttackWithUnit(AUnit* Unit)
     // Attack the unit
     int32 Damage = Unit->Attack(TargetUnit);
 
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Smart AI %s dealt %d damage to %s"),
-            *Unit->GetUnitName(), Damage, *TargetUnit->GetUnitName()));
-
     // Record attack
     if (GameInstance)
     {
@@ -647,7 +583,7 @@ AUnit* ATBS_SmartAI::SelectBestAttackTarget(AUnit* AttackingUnit, const TArray<A
     {
         AUnit* TargetUnit = Tile->GetOccupyingUnit();
 
-        // Skip if no unit on tile or it's our own unit
+        // Skip if no unit on tile or it's player's unit
         if (!TargetUnit || TargetUnit->GetOwnerID() == PlayerNumber)
             continue;
 
@@ -698,10 +634,6 @@ void ATBS_SmartAI::SkipUnitTurn()
         // Mark the unit as having moved and attacked
         SelectedUnit->bHasMoved = true;
         SelectedUnit->bHasAttacked = true;
-
-        // Display a message
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            FString::Printf(TEXT("Smart AI %s turn skipped"), *SelectedUnit->GetUnitName()));
 
         // Record skipped turn in move history
         if (GameInstance)
@@ -756,7 +688,7 @@ ATile* ATBS_SmartAI::SelectBestMovementDestination(AUnit* Unit)
             float Score = 0;
             FVector2D TilePos = Tile->GetGridPosition();
 
-            // Check if moving here would let us attack an enemy right after
+            // Check if moving here would let it attack an enemy right after
             bool CanAttackAfterMove = false;
             bool WouldBeUnderAttack = false;
 
@@ -764,7 +696,7 @@ ATile* ATBS_SmartAI::SelectBestMovementDestination(AUnit* Unit)
             ATile* OriginalTile = Unit->GetCurrentTile();
             TArray<ATile*> AttackTilesAfterMove;
 
-            // Theoretically, what would be our attack tiles if we moved here?
+            // Theoretically, what would be it's attack tiles if we moved here?
             for (AUnit* Enemy : EnemyUnits)
             {
                 if (!Enemy || Enemy->IsDead())
@@ -779,14 +711,14 @@ ATile* ATBS_SmartAI::SelectBestMovementDestination(AUnit* Unit)
                 // Simple distance calculation (Manhattan distance)
                 float Distance = FMath::Abs(TilePos.X - EnemyPos.X) + FMath::Abs(TilePos.Y - EnemyPos.Y);
 
-                // Check if enemy would be in our attack range
+                // Check if enemy would be in attack range
                 if (Unit->GetAttackRange() >= Distance)
                 {
                     CanAttackAfterMove = true;
                     Score += 100.0f; // Strong bonus for being able to attack
                 }
 
-                // Check if we'd be in enemy attack range
+                // Check if unit'd be in enemy attack range
                 if (Enemy->GetAttackRange() >= Distance)
                 {
                     WouldBeUnderAttack = true;

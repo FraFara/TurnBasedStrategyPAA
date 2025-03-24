@@ -60,13 +60,11 @@ void ATBS_GameMode::BeginPlay()
         }
         else
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn grid"));
             return;
         }
     }
     else
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("GridClass is null"));
         return;
     }
 
@@ -74,15 +72,12 @@ void ATBS_GameMode::BeginPlay()
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (!PlayerController)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
         return;
     }
 
     ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
     if (!HumanPlayer)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Spawning HumanPlayer"));
-
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = PlayerController;
         HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
@@ -90,11 +85,9 @@ void ATBS_GameMode::BeginPlay()
         if (HumanPlayer)
         {
             PlayerController->Possess(HumanPlayer);
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("HumanPlayer spawned successfully"));
         }
         else
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn HumanPlayer"));
             return;
         }
     }
@@ -125,9 +118,6 @@ void ATBS_GameMode::BeginPlay()
     // Add a slight delay before showing the AI selection UI
     FTimerHandle TimerHandle;
     GetWorldTimerManager().SetTimer(TimerHandle, this, &ATBS_GameMode::ShowAISelectionUI, 0.5f, false);
-
-    // Debug message for game start
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Game Starting - Choose AI Difficulty"));
 }
 
 void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
@@ -135,8 +125,6 @@ void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
     // Ensure we're in the setup phase and the current player is correct
     if (CurrentPhase != EGamePhase::SETUP || CurrentPlayer != 0)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            TEXT("Cannot show unit selection UI outside of setup phase or when it's not the human player's turn"));
         return;
     }
 
@@ -148,8 +136,6 @@ void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
     // Validate human player and placement tile
     if (!HumanPlayer || !HumanPlayer->GetCurrentPlacementTile())
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            TEXT("No tile selected for placement or invalid human player"));
         return;
     }
 
@@ -185,8 +171,6 @@ void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
             // Validate buttons exist
             if (!BrawlerButton || !SniperButton)
             {
-                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-                    TEXT("Failed to find unit selection buttons"));
                 UnitSelectionWidget->RemoveFromParent();
                 UnitSelectionWidget = nullptr;
                 return;
@@ -215,20 +199,7 @@ void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
                 // Restore game input
                 PlayerController->SetInputMode(FInputModeGameOnly());
             }
-
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-                TEXT("Unit selection UI shown successfully"));
         }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-                TEXT("Failed to create UnitSelectionWidget"));
-        }
-    }
-    else
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            TEXT("UnitSelectionWidgetClass is not set"));
     }
 }
 
@@ -251,11 +222,6 @@ void ATBS_GameMode::HideUnitSelectionUI()
 
 void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
 {
-    // Debug logging
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("OnUnitTypeSelected called with type: %s"),
-            *UEnum::GetValueAsString(SelectedType)));
-
     // Hide the selection UI
     HideUnitSelectionUI();
 
@@ -263,7 +229,6 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (!PlayerController)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
         return;
     }
 
@@ -271,7 +236,6 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
     ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
     if (!HumanPlayer)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to cast to HumanPlayer"));
         return;
     }
 
@@ -279,7 +243,6 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
     ATile* PlacementTile = HumanPlayer->GetCurrentPlacementTile();
     if (!PlacementTile)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No tile selected for placement"));
         return;
     }
 
@@ -296,10 +259,6 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
 
     if (Success)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-            FString::Printf(TEXT("Successfully placed %s at (%f, %f)"),
-                *UEnum::GetValueAsString(SelectedType), GridPos.X, GridPos.Y));
-
         // Clear the placement tile in the human player
         HumanPlayer->ClearCurrentPlacementTile();
     }
@@ -332,7 +291,6 @@ void ATBS_GameMode::ShowAISelectionUI()
         APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
         if (!PlayerController)
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
             return;
         }
 
@@ -365,8 +323,6 @@ void ATBS_GameMode::ShowAISelectionUI()
             {
                 HardButton->OnClicked.AddDynamic(this, &ATBS_GameMode::OnHardAISelected);
             }
-
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("AI Selection UI shown"));
         }
         else
         {
@@ -399,17 +355,12 @@ void ATBS_GameMode::HideAISelectionUI()
 void ATBS_GameMode::OnEasyAISelected()
 {
     bUseSmartAI = false;
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Easy AI (Random) selected"));
 
     // Hide the selection UI
     HideAISelectionUI();
 
     // Update GameInstance with a message
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
-    if (GameInstance)
-    {
-        GameInstance->SetTurnMessage(TEXT("Easy AI (Random) selected - Starting game..."));
-    }
 
     // Proceed with game initialization
     InitializeGame();
@@ -418,7 +369,6 @@ void ATBS_GameMode::OnEasyAISelected()
 void ATBS_GameMode::OnHardAISelected()
 {
     bUseSmartAI = true;
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Hard AI (Smart) selected"));
 
     // Hide the selection UI
     HideAISelectionUI();
@@ -438,9 +388,6 @@ void ATBS_GameMode::OnAIDifficultySelected(bool bIsHardAI)
 {
     // Set the AI difficulty based on the parameter
     this->bUseSmartAI = bIsHardAI;
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("%s AI selected"), bIsHardAI ? TEXT("Smart") : TEXT("Naive")));
 
     // Hide the selection UI
     HideAISelectionUI();
@@ -470,7 +417,6 @@ void ATBS_GameMode::InitializeGame()
         }
         else
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn grid"));
             return;
         }
     }
@@ -479,7 +425,6 @@ void ATBS_GameMode::InitializeGame()
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (!PlayerController)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
         return;
     }
 
@@ -496,7 +441,6 @@ void ATBS_GameMode::InitializeGame()
         }
         else
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn HumanPlayer"));
             return;
         }
     }
@@ -533,8 +477,6 @@ void ATBS_GameMode::InitializeGame()
     if (AI)
     {
         Players.Add(AI);
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-            FString::Printf(TEXT("%s AI Player added successfully"), bUseSmartAI ? TEXT("Smart") : TEXT("Naive")));
     }
     else
     {
@@ -553,7 +495,6 @@ void ATBS_GameMode::InitializeGame()
 
     // Start the game with a coin toss
     int32 StartingPlayer = SimulateCoinToss();
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Coin Toss Result: Player %d starts"), StartingPlayer));
 
     StartPlacementPhase(StartingPlayer);
 }
@@ -600,7 +541,7 @@ void ATBS_GameMode::ShowCoinTossResult()
     FString CoinTossMessage = GameInstance->GetTurnMessage();
 
     // Display in debug log
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, CoinTossMessage);
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, CoinTossMessage);
 
     // Create widget to show the result
     CoinTossWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), CoinTossWidgetClass);
@@ -630,8 +571,6 @@ void ATBS_GameMode::ShowCoinTossResult()
 
 void ATBS_GameMode::ResetGame()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Game Reset Requested"));
-
     // Make sure we're not in the middle of something important
     if (CurrentPhase == EGamePhase::SETUP)
     {
@@ -657,7 +596,6 @@ FString ATBS_GameMode::WinningPlayerMessage(int32 WinnerIndex)
 
 void ATBS_GameMode::DebugForceGameplay()
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("FORCING GAMEPLAY PHASE START"));
     UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
     StartGameplayPhase();
 }
@@ -671,8 +609,6 @@ void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
     CurrentPlayer = StartingPlayer;
     CurrentPhase = EGamePhase::SETUP;
 
-    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("StartPlacementPhase called"));
-
     // Notify the player it's their turn to place
     if (Players.IsValidIndex(CurrentPlayer))
     {
@@ -684,19 +620,12 @@ void ATBS_GameMode::StartPlacementPhase(int32 StartingPlayer)
         // If it's human player's turn, show UI with slight delay to ensure other UIs are cleared
         if (CurrentPlayer == 0)
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Human Player's turn for placement"));
-
             // Timer to delay showing the UI slightly
             FTimerHandle ShowUITimerHandle;
             GetWorldTimerManager().SetTimer(ShowUITimerHandle, [this]()
                 {
                     ShowUnitSelectionUI(true);
                 }, 0.2f, false);
-        }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-                FString::Printf(TEXT("AI's turn for placement (Player %d)"), CurrentPlayer));
         }
     }
     else
@@ -709,9 +638,6 @@ void ATBS_GameMode::StartGameplayPhase()
 {
     // Explicitly set the phase to GAMEPLAY
     CurrentPhase = EGamePhase::GAMEPLAY;
-
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        TEXT("GAMEPLAY PHASE STARTED"));
 
     // Reset any placement-related flags
     UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
@@ -756,9 +682,6 @@ void ATBS_GameMode::StartGameplayPhase()
         if (Unit)
         {
             Unit->ResetTurn();
-            GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Cyan,
-                FString::Printf(TEXT("Reset unit: %s (Owner: %d)"),
-                    *Unit->GetUnitName(), Unit->GetOwnerID()));
         }
     }
 
@@ -781,16 +704,8 @@ void ATBS_GameMode::StartGameplayPhase()
             // Only the current player gets turn set to true
             bool bIsCurrentPlayer = (i == CurrentPlayer);
             ITBS_PlayerInterface::Execute_SetTurnState(Players[i], bIsCurrentPlayer);
-
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-                FString::Printf(TEXT("Player %d turn state set to: %s"),
-                    i, bIsCurrentPlayer ? TEXT("TRUE") : TEXT("FALSE")));
         }
     }
-
-    // Ensure the current player is set correctly
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue,
-        FString::Printf(TEXT("First player in GAMEPLAY phase: %d"), CurrentPlayer));
 
     // Notify the player it's their turn (with delay to ensure everything is set up)
     FTimerHandle TurnStartTimerHandle;
@@ -798,9 +713,6 @@ void ATBS_GameMode::StartGameplayPhase()
         {
             if (Players.IsValidIndex(CurrentPlayer))
             {
-                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-                    FString::Printf(TEXT("Starting turn for Player %d"), CurrentPlayer));
-
                 ITBS_PlayerInterface::Execute_OnTurn(Players[CurrentPlayer]);
             }
         }, 0.5f, false);
@@ -844,7 +756,6 @@ void ATBS_GameMode::EndTurn()
     // Check if the game is over
     if (bIsGameOver)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Game is over, not continuing"));
         return;
     }
 
@@ -877,26 +788,13 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     // Early validation checks
     if (!GameGrid || CurrentPhase != EGamePhase::SETUP || PlayerIndex != CurrentPlayer)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Cannot place unit: Invalid game state. Grid: %s, Phase: %d, PlayerIndex: %d, CurrentPlayer: %d"),
-                GameGrid ? TEXT("Valid") : TEXT("Null"),
-                (int32)CurrentPhase, PlayerIndex, CurrentPlayer));
         return false;
     }
-
-    // Debug the current placement state
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("PlaceUnit - Player %d placing %s, BrawlerPlaced: %d, SniperPlaced: %d"),
-            PlayerIndex, (Type == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper"),
-            BrawlerPlaced[PlayerIndex], SniperPlaced[PlayerIndex]));
 
     // Check if player already placed this unit type
     if ((Type == EUnitType::BRAWLER && BrawlerPlaced[PlayerIndex]) ||
         (Type == EUnitType::SNIPER && SniperPlaced[PlayerIndex]))
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("You've already placed a %s unit"),
-                (Type == EUnitType::BRAWLER) ? TEXT("Brawler") : TEXT("Sniper")));
         return false;
     }
 
@@ -904,27 +802,18 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     FVector2D Position(GridX, GridY);
     if (!GameGrid->TileMap.Contains(Position))
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Invalid tile for unit placement: (%d, %d)"), GridX, GridY));
         return false;
     }
 
     ATile* Tile = GameGrid->TileMap[Position];
     if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Selected tile is not empty. Tile: %s, Status: %d"),
-                Tile ? TEXT("Valid") : TEXT("Null"), Tile ? (int32)Tile->GetTileStatus() : -1));
         return false;
     }
 
     // Spawn unit - ensure both classes are set
     if (!BrawlerClass || !SniperClass)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            FString::Printf(TEXT("Unit class not set. Brawler: %s, Sniper: %s"),
-                BrawlerClass ? TEXT("Valid") : TEXT("Null"),
-                SniperClass ? TEXT("Valid") : TEXT("Null")));
         return false;
     }
 
@@ -940,19 +829,12 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
 
     if (!NewUnit)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            TEXT("Failed to spawn unit"));
         return false;
     }
 
     // Initialize unit
     NewUnit->SetOwnerID(PlayerIndex);
     NewUnit->InitializePosition(Tile);
-
-    // Debug logging
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Unit placed - Type: %s, Owner: %d, Position: (%d,%d)"),
-            *NewUnit->GetUnitName(), NewUnit->GetOwnerID(), GridX, GridY));
 
     // Get game instance to record move history
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
@@ -970,10 +852,6 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
             FVector2D(GridX, GridY),
             0
         );
-
-        // Additional debug logging
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-            FString::Printf(TEXT("Recorded placement of %s at (%d, %d)"), *UnitTypeString, GridX, GridY));
     }
 
     // Mark unit type as placed
@@ -985,17 +863,10 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
     // Increment units placed
     UnitsPlaced++;
 
-    // Debug the units placed count
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Units placed: %d of %d"), UnitsPlaced, NumberOfPlayers * UnitsPerPlayer));
-
     // Check if all units are placed
     if (UnitsPlaced >= NumberOfPlayers * UnitsPerPlayer)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            TEXT("All units placed, starting gameplay phase"));
-
-        // IMPORTANT: Add a delay before starting gameplay phase
+        // Add a delay before starting gameplay phase
         FTimerHandle GameplayTimerHandle;
         GetWorldTimerManager().SetTimer(GameplayTimerHandle, [this]()
             {
@@ -1016,8 +887,6 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
         ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
         if (PlayerInterface)
         {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-                FString::Printf(TEXT("Calling OnPlacement for player %d"), CurrentPlayer));
             ITBS_PlayerInterface::Execute_OnPlacement(PlayerActor);
         }
         else
@@ -1035,62 +904,6 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
 
     return true;
 }
-
-//bool ATBS_GameMode::CheckGameOver()
-//{
-//    bool bGameOver = false;
-//    int32 WinningPlayer = -1;
-//
-//    // Reset unit count
-//    UnitsRemaining.SetNum(NumberOfPlayers);
-//    for (int32 i = 0; i < NumberOfPlayers; i++)
-//    {
-//        UnitsRemaining[i] = 0;
-//    }
-//
-//    // Check each player's remaining units
-//    for (int32 i = 0; i < NumberOfPlayers; i++)
-//    {
-//        TArray<AActor*> PlayerUnits;
-//        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), PlayerUnits);
-//
-//        int32 RemainingUnits = 0;
-//        for (AActor* Actor : PlayerUnits)
-//        {
-//            AUnit* Unit = Cast<AUnit>(Actor);
-//            if (Unit && Unit->GetOwnerID() == i)
-//            {
-//                RemainingUnits++;
-//            }
-//        }
-//
-//        UnitsRemaining[i] = RemainingUnits;
-//
-//        // Detailed debug logging to understand unit counts
-//        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
-//            FString::Printf(TEXT("Player %d has %d units remaining"), i, RemainingUnits));
-//
-//        // If a player has no units, the other player wins
-//        if (RemainingUnits == 0)
-//        {
-//            bGameOver = true;
-//            WinningPlayer = (i + 1) % NumberOfPlayers; // Other player wins
-//
-//            // Add more explicit messaging
-//            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-//                FString::Printf(TEXT("Player %d has no units left! Player %d wins this round!"),
-//                    i, WinningPlayer));
-//        }
-//    }
-//
-//    if (bGameOver && !bIsGameOver)
-//    {
-//        bIsGameOver = true;
-//        PlayerWon(WinningPlayer);
-//    }
-//
-//    return bGameOver;
-//}
 
 bool ATBS_GameMode::CheckGameOver()
 {
@@ -1125,17 +938,10 @@ bool ATBS_GameMode::CheckGameOver()
     // Check if any player has lost all units
     for (int32 i = 0; i < NumberOfPlayers; i++)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            FString::Printf(TEXT("Player %d has %d units remaining"), i, UnitsRemaining[i]));
-
         if (UnitsRemaining[i] == 0)
         {
             bGameOver = true;
             WinningPlayer = (i + 1) % NumberOfPlayers; // Other player wins
-
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-                FString::Printf(TEXT("Player %d has no units left! Player %d WINS!"),
-                    i, WinningPlayer));
         }
     }
 
@@ -1160,10 +966,6 @@ void ATBS_GameMode::NotifyUnitDestroyed(int32 PlayerIndex)
     {
         UnitsRemaining[PlayerIndex]--;
 
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Orange,
-            FString::Printf(TEXT("Player %d lost a unit! Units remaining: %d"),
-                PlayerIndex, UnitsRemaining[PlayerIndex]));
-
         // Check if the game is over with a slight delay to ensure all damage is processed
         FTimerHandle CheckGameOverTimerHandle;
         GetWorldTimerManager().SetTimer(CheckGameOverTimerHandle, [this]()
@@ -1172,18 +974,6 @@ void ATBS_GameMode::NotifyUnitDestroyed(int32 PlayerIndex)
             }, 0.1f, false);
     }
 }
-
-//void ATBS_GameMode::NotifyUnitDestroyed(int32 PlayerIndex)
-//{
-//    // Decrement the player's unit count
-//    if (UnitsRemaining.IsValidIndex(PlayerIndex))
-//    {
-//        UnitsRemaining[PlayerIndex]--;
-//
-//        // Check if the game is over
-//        CheckGameOver();
-//    }
-//}
 
 AActor* ATBS_GameMode::GetCurrentPlayer()
 {
@@ -1197,10 +987,6 @@ AActor* ATBS_GameMode::GetCurrentPlayer()
 
 void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
 {
-    // Debug message to confirm function is called
-    GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Green,
-        FString::Printf(TEXT("GAME OVER! Player %d has WON the game!"), PlayerIndex));
-
     // Make sure we aren't calling this multiple times
     if (CurrentPhase == EGamePhase::ROUND_END)
     {
@@ -1261,11 +1047,6 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
             *WinnerName, GameInstance->GetScoreHumanPlayer(), GameInstance->GetScoreAiPlayer());
 
         GameInstance->SetTurnMessage(EndGameMessage);
-
-        // Show on-screen message
-        GEngine->AddOnScreenDebugMessage(-1, 30.f,
-            PlayerIndex == 0 ? FColor::Green : FColor::Red,
-            EndGameMessage);
     }
 }
 
@@ -1430,7 +1211,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     // Validate grid existence
     if (!GameGrid)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Cannot spawn obstacles: Grid is null"));
         return;
     }
 
@@ -1440,11 +1220,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     // Calculate target obstacles
     int32 TotalCells = GridSize * GridSize;
     int32 TargetObstacles = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
-
-    // Debug message
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Starting obstacle placement: %d obstacles (%.1f%% of %d cells)"),
-            TargetObstacles, ObstaclePercentage, TotalCells));
 
     // Clear any existing obstacles first
     for (ATile* Tile : GameGrid->TileArray)
@@ -1527,15 +1302,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
         if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
         {
             PlacedObstacles++;
-
-            // Progress reporting
-            if (PlacedObstacles % 20 == 0 || PlacedObstacles == TargetObstacles)
-            {
-                GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-                    FString::Printf(TEXT("Placed %d/%d obstacles (%.1f%%)"),
-                        PlacedObstacles, TargetObstacles,
-                        (PlacedObstacles * 100.0f) / TotalCells));
-            }
         }
     }
 
@@ -1543,10 +1309,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     // try to add more obstacles with connectivity checks
     if (PlacedObstacles < TargetObstacles && DirectPlacementTarget < TargetObstacles)
     {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            FString::Printf(TEXT("Continuing with connectivity-checked placement: %d/%d obstacles placed"),
-                PlacedObstacles, TargetObstacles));
-
         // Rebuild available tiles array
         TArray<ATile*> AvailableTiles;
         for (ATile* Tile : GameGrid->TileArray)
@@ -1600,13 +1362,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
             if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
             {
                 PlacedObstacles++;
-
-                if (PlacedObstacles % 10 == 0 || PlacedObstacles == TargetObstacles)
-                {
-                    GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green,
-                        FString::Printf(TEXT("Phase 2: Placed %d/%d obstacles"),
-                            PlacedObstacles, TargetObstacles));
-                }
             }
         }
     }
@@ -1622,18 +1377,10 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     }
 
     float FinalPercentage = (actualObstacles * 100.0f) / TotalCells;
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Final obstacle count: %d (%.1f%% of grid, target was %.1f%%)"),
-            actualObstacles, FinalPercentage, ObstaclePercentage));
 
     // Final validations
     GameGrid->ValidateAllObstacles();
 
     // Check connectivity but only warn if it fails
     bool IsFinallyConnected = GameGrid->ValidateConnectivity();
-    if (!IsFinallyConnected)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-            TEXT("WARNING: The map contains disconnected regions!"));
-    }
 }

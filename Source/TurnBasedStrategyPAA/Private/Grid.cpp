@@ -95,7 +95,7 @@ void AGrid::GenerateGrid()
 	}
 }
 
-//Clicking on a tile returns its position
+// Clicking on a tile returns its position
 FVector2D AGrid::GetPosition(const FHitResult& Hit)
 {
 	return Cast<ATile>(Hit.GetActor())->GetGridPosition();
@@ -113,10 +113,6 @@ FVector AGrid::GetRelativeLocationByXYPosition(const int32 InX, const int32 InY)
 
 FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 {
-	// Debug the input location
-	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
-		FString::Printf(TEXT("Converting world location: X=%.2f, Y=%.2f"), Location.X, Location.Y));
-
 	// Calculate the exact grid position 
 	const float XPos = Location.X / (TileSize * NextCellPositionMultiplier);
 	const float YPos = Location.Y / (TileSize * NextCellPositionMultiplier);
@@ -129,11 +125,6 @@ FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 	const float FractX = XPos - GridX;
 	const float FractY = YPos - GridY;
 
-	// Debug the conversion
-	GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
-		FString::Printf(TEXT("Converted to grid pos: X=%d (%.2f), Y=%d (%.2f)"),
-			GridX, FractX, GridY, FractY));
-
 	return FVector2D(GridX, GridY);
 }
 
@@ -145,7 +136,7 @@ void AGrid::ValidateAllObstacles()
 	{
 		if (!Tile) continue;
 
-		// If owner is -2, ensure it's fully set up as an obstacle
+		// If owner is -2, fully set up as an obstacle
 		if (Tile->GetOwner() == -2)
 		{
 			// Set status to OCCUPIED
@@ -170,18 +161,11 @@ void AGrid::ValidateAllObstacles()
 			Tile->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
 		}
 	}
-
-	// Verify obstacles were fixed
-	if (fixedObstacles > 0)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("Validated %d obstacles on grid"), fixedObstacles));
-	}
 }
 
 bool AGrid::ValidateConnectivity()
 {
-	// Count how many empty tiles we have
+	// Count how many empty tilesare found
 	TArray<ATile*> EmptyTiles;
 	int32 totalTiles = 0;
 	int32 emptyTiles = 0;
@@ -210,11 +194,6 @@ bool AGrid::ValidateConnectivity()
 			occupiedTiles++;
 		}
 	}
-
-	// Debug counts
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan,
-		FString::Printf(TEXT("Connectivity Check: Empty=%d, Obstacles=%d, Occupied=%d, Total=%d"),
-			emptyTiles, obstacleTiles, occupiedTiles, totalTiles));
 
 	// If there are 0 or 1 empty tiles, they're trivially connected
 	if (EmptyTiles.Num() <= 1)
@@ -271,17 +250,12 @@ bool AGrid::ValidateConnectivity()
 		}
 	}
 
-	// Debug visited tile count
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan,
-		FString::Printf(TEXT("Connectivity Check: Visited %d out of %d empty tiles"),
-			Visited.Num(), EmptyTiles.Num()));
-
 	// All empty tiles should have been visited if they're connected
 	return Visited.Num() == EmptyTiles.Num();
 }
 
 
-//returns true if the tile is in the grid
+// returns true if the tile is in the grid
 inline bool AGrid::IsValidPosition(const FVector2D Position) const
 {
 	return 0 <= Position.X && Position.X < Size && 0 <= Position.Y && Position.Y < Size;

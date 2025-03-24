@@ -89,10 +89,6 @@ void ATBS_NaiveAI::OnTurn_Implementation()
 	// Find units at the start of turn
 	FindMyUnits();
 
-	// Debug how many units we found
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI found %d units for its turn"), MyUnits.Num()));
-
 	float Delay = FMath::RandRange(MinActionDelay, MaxActionDelay);
 	GetWorldTimerManager().SetTimer(ActionTimerHandle, this, &ATBS_NaiveAI::ProcessTurnAction, Delay, false);
 }
@@ -101,9 +97,6 @@ void ATBS_NaiveAI::SetTurnState_Implementation(bool bNewTurnState)
 {
 	// Safely set the turn state
 	bIsProcessingTurn = bNewTurnState;
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI Player turn state changed to: %d"), bIsProcessingTurn ? 1 : 0));
 
 	// Use Execute_ method to call the UI update
 	if (bNewTurnState)
@@ -128,16 +121,10 @@ void ATBS_NaiveAI::UpdateUI_Implementation()
 
 		GameInstance->SetTurnMessage(Message);
 	}
-
-	// Additional debug logging
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("UpdateUI called. bIsProcessingTurn: %d"), bIsProcessingTurn ? 1 : 0));
 }
 
 void ATBS_NaiveAI::OnWin_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Wins!"));
-
 	if (GameInstance)
 	{
 		// Set the winner to the AI player (index 1)
@@ -150,16 +137,11 @@ void ATBS_NaiveAI::OnWin_Implementation()
 
 void ATBS_NaiveAI::OnLose_Implementation()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI (Random) Loses!"));
-
 	GameInstance->SetTurnMessage(TEXT("AI Loses!"));
 }
 
 void ATBS_NaiveAI::OnPlacement_Implementation()
 {
-	// AI received placement notification
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI Placing Units"));
-
 	GameInstance->SetTurnMessage(TEXT("AI Placing Units"));
 
 	// Add slight delay before placing units
@@ -200,9 +182,6 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 	// Verify it's AI's turn
 	if (GameMode->CurrentPlayer != PlayerNumber)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			FString::Printf(TEXT("AI Placement - Not AI's turn. CurrentPlayer: %d, AI: %d"),
-				GameMode->CurrentPlayer, PlayerNumber));
 		return;
 	}
 
@@ -242,10 +221,6 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		int32 GridX, GridY;
 		if (PickRandomTileForPlacement(GridX, GridY))
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-				FString::Printf(TEXT("AI Placement - Attempt %d: Selected position: (%d,%d)"),
-					Attempt + 1, GridX, GridY));
-
 			// Try to place the unit
 			Success = GameMode->PlaceUnit(TypeToPlace, GridX, GridY, PlayerNumber);
 
@@ -259,16 +234,7 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 						FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
 				}
 
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-					FString::Printf(TEXT("AI Placement - Successfully placed %s at (%d,%d)"),
-						*UnitTypeString, GridX, GridY));
 				break;
-			}
-			else
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-					FString::Printf(TEXT("AI Placement - Failed to place unit at (%d,%d), trying again..."),
-						GridX, GridY));
 			}
 		}
 		else
@@ -343,10 +309,6 @@ bool ATBS_NaiveAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
 		return false;
 	}
 
-	// Debug grid state
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI - Grid TileArray has %d tiles"), Grid->TileArray.Num()));
-
 	// Create a list of all empty tiles with additional verification
 	TArray<ATile*> EmptyTiles;
 	int32 totalTiles = 0;
@@ -383,11 +345,6 @@ bool ATBS_NaiveAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
 		}
 	}
 
-	// Detailed debug for understanding tile states
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-		FString::Printf(TEXT("AI - Found %d truly empty tiles, %d obstacles, %d occupied tiles out of %d total"),
-			emptyTiles, obstacleTiles, occupiedTiles, totalTiles));
-
 	// If we found empty tiles, pick a random one
 	if (EmptyTiles.Num() > 0)
 	{
@@ -404,10 +361,6 @@ bool ATBS_NaiveAI::PickRandomTileForPlacement(int32& OutX, int32& OutY)
 				FVector2D GridPos = SelectedTile->GetGridPosition();
 				OutX = GridPos.X;
 				OutY = GridPos.Y;
-
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-					FString::Printf(TEXT("AI - Selected empty tile at (%d,%d) with status %d and owner %d"),
-						OutX, OutY, (int32)SelectedTile->GetTileStatus(), SelectedTile->GetOwner()));
 
 				return true;
 			}
@@ -459,13 +412,8 @@ void ATBS_NaiveAI::ProcessTurnAction()
 
 void ATBS_NaiveAI::ProcessUnitAction(AUnit* Unit)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AI ProcessTurnAction called"));
-
 	// Find all units owned by this AI
 	FindMyUnits();
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-		FString::Printf(TEXT("AI found %d units"), MyUnits.Num()));
 
 	if (!Unit || Unit->IsDead())
 		return;
@@ -568,8 +516,6 @@ bool ATBS_NaiveAI::TryAttackWithUnit(AUnit* Unit)
 	// Attack the unit
 	int32 Damage = Unit->Attack(TargetUnit);
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("AI %s dealt %d damage to %s"), *Unit->GetUnitName(), Damage, *TargetUnit->GetUnitName()));
-
 	// Record attack
 	if (GameInstance)
 	{
@@ -592,10 +538,6 @@ void ATBS_NaiveAI::SkipUnitTurn()
 		// Mark the unit as having moved and attacked
 		SelectedUnit->bHasMoved = true;
 		SelectedUnit->bHasAttacked = true;
-
-		// Display a message
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
-			FString::Printf(TEXT("AI %s turn skipped"), *SelectedUnit->GetUnitName()));
 
 		// Record skipped turn in move history
 		if (GameInstance)
