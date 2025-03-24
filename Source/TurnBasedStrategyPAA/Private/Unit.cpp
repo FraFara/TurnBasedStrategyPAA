@@ -19,13 +19,7 @@ AUnit::AUnit()
     SetRootComponent(SceneComponent);
     StaticMeshComponent->SetupAttachment(SceneComponent);
 
-    // Set proper collision settings for unit selection
-    StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    StaticMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
-    StaticMeshComponent->SetCollisionObjectType(ECC_Pawn);
-    StaticMeshComponent->SetGenerateOverlapEvents(true);
-
-    // Make sure the mesh is visible and can be clicked
+    // Make the mesh visible and can be clicked
     StaticMeshComponent->SetVisibility(true);
     StaticMeshComponent->bSelectable = true;
 
@@ -197,6 +191,19 @@ TArray<ATile*> AUnit::GetMovementTiles()
     if (!CurrentTile || !Grid)
         return ValidTiles;
 
+    // Validate obstacles before calculating movement
+    Grid->ValidateAllObstacles();
+
+    // Build a list of obstacle positions for quick checking
+    TSet<FVector2D> ObstaclePositions;
+    for (ATile* Tile : Grid->GetTileArray())
+    {
+        if (Tile && (Tile->GetOwner() == -2 || Tile->IsObstacle()))
+        {
+            ObstaclePositions.Add(Tile->GetGridPosition());
+        }
+    }
+
     // Algorithm BFS to find valid movement tiles
     TArray<ATile*> Queue;
     TMap<ATile*, int32> Distance;
@@ -281,16 +288,11 @@ TArray<ATile*> AUnit::GetMovementTiles()
         }
     }
 
-    // Before returning, check for any problematic obstacle tiles
-    for (ATile* Tile : ValidTiles)
+    for (int32 i = ValidTiles.Num() - 1; i >= 0; i--)
     {
-        // Check for tiles that should be obstacles but are being included
-        if (Tile->GetOwner() == -2 || Tile->IsObstacle())
+        if (ObstaclePositions.Contains(ValidTiles[i]->GetGridPosition()))
         {
-            GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red,
-                FString::Printf(TEXT("WARNING: Obstacle at (%f,%f) incorrectly included in movement tiles! Status: %d, Owner: %d"),
-                    Tile->GetGridPosition().X, Tile->GetGridPosition().Y,
-                    (int32)Tile->GetTileStatus(), Tile->GetOwner()));
+            ValidTiles.RemoveAt(i);
         }
     }
 

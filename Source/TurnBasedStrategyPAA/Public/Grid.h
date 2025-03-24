@@ -50,7 +50,6 @@ public:
 	// tile size
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float TileSize;
-
 	
 public:	
 	// Sets default values for this actor's properties
@@ -67,8 +66,13 @@ public:
 	// generate an empty game grid
 	void GenerateGrid();
 
+	// return the array of tile pointers
+	TArray<ATile*>& GetTileArray();
+
 	// return (x,y) position given a relative position
 	FVector2D GetXYPositionByRelativeLocation(const FVector& Location) const;
+
+	void ValidateAllObstacles();
 
 protected:
 	// Called when the game starts or when spawned
@@ -76,9 +80,6 @@ protected:
 
 	// return a (x,y) position given a hit (click) on a grid tile
 	FVector2D GetPosition(const FHitResult& Hit);
-
-	// return the array of tile pointers
-	TArray<ATile*>& GetTileArray();
 
 	// given (x,y) position returns a (x,y,z) position
 	

@@ -1475,10 +1475,10 @@ void ATBS_GameMode::SpawnObstacles()
         }
     }
 
-    // Final log
-    GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
-        FString::Printf(TEXT("Completed: Placed and verified %d/%d obstacles (%.1f%%)"),
-            verifiedObstacles, ObstaclesToPlace, (float)verifiedObstacles / ObstaclesToPlace * 100.0f));
+    if (GameGrid)
+    {
+        GameGrid->ValidateAllObstacles();
+    }
 }
 
 

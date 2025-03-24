@@ -31,51 +31,9 @@ void AGrid::BeginPlay()
 {
 	Super::BeginPlay();
 	GenerateGrid();
+	ValidateAllObstacles();
 
 }
-
-//// Resets the grid to empty
-//void AGrid::ResetGrid()
-//{
-//	// First, clear all obstacles by properly resetting each tile
-//	for (ATile* Obj : TileArray)
-//	{
-//		// Special handling to properly reset obstacle tiles
-//		if (Obj->GetOwner() == -2 || Obj->IsObstacle())
-//		{
-//			// Make sure we properly clear the obstacle state
-//			Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
-//
-//			// Reset material to default (non-obstacle) appearance
-//			if (UFunction* Function = Obj->FindFunction(TEXT("ResetTileMaterial")))
-//			{
-//				Obj->ProcessEvent(Function, nullptr);
-//			}
-//		}
-//		else
-//		{
-//			// Normal reset for non-obstacle tiles
-//			Obj->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
-//		}
-//	}
-//
-//	// Clear any occupying units references that might remain
-//	for (ATile* Obj : TileArray)
-//	{
-//		Obj->SetOccupyingUnit(nullptr);
-//	}
-//
-//	// Send broadcast event to registered objects 
-//	OnResetEvent.Broadcast();
-//
-//	// Get game mode and reset relevant state
-//	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-//	if (GameMode)
-//	{
-//		GameMode->bIsGameOver = false;
-//		GameMode->CurrentPhase = EGamePhase::NONE;
-//	}
-//}
 
 // Resets the grid to empty
 void AGrid::ResetGrid()
@@ -177,6 +135,48 @@ FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 			GridX, FractX, GridY, FractY));
 
 	return FVector2D(GridX, GridY);
+}
+
+void AGrid::ValidateAllObstacles()
+{
+	int32 fixedObstacles = 0;
+
+	for (ATile* Tile : TileArray)
+	{
+		if (!Tile) continue;
+
+		// If owner is -2, ensure it's fully set up as an obstacle
+		if (Tile->GetOwner() == -2)
+		{
+			// Set status to OCCUPIED
+			Tile->SetTileStatus(-2, ETileStatus::OCCUPIED);
+
+			// Clear any unit that might be wrongly assigned
+			Tile->SetOccupyingUnit(nullptr);
+
+			// Update visual appearance
+			if (UFunction* Function = Tile->FindFunction(TEXT("SetObstacleMaterial")))
+			{
+				Tile->ProcessEvent(Function, nullptr);
+			}
+
+			fixedObstacles++;
+		}
+
+		// Clear any "phantom obstacles" - occupied tiles with no unit
+		if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && !Tile->GetOccupyingUnit() && Tile->GetOwner() != -2)
+		{
+			// Reset to empty state
+			Tile->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
+		}
+	}
+
+	// Verify obstacles were fixed
+	if (fixedObstacles > 0)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+			FString::Printf(TEXT("Validated %d obstacles on grid"), fixedObstacles));
+	}
 }
 
 //returns true if the tile is in the grid
