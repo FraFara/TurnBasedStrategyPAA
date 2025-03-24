@@ -6,6 +6,8 @@
 #include "Sniper.h"
 #include "TBS_HumanPlayer.h"
 #include "TBS_NaiveAI.h"
+#include "TBS_SmartAI.h"
+#include "AISelectionWidget.h"
 #include "TBS_PlayerController.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
@@ -37,25 +39,17 @@ ATBS_GameMode::ATBS_GameMode()
     // Set default pawn class
     DefaultPawnClass = ATBS_HumanPlayer::StaticClass();
 
-    // Load the Brawler and Sniper classes (add this)
-    static ConstructorHelpers::FClassFinder<ABrawler> BrawlerBP(TEXT("/Game/Blueprints/BP_Brawler"));
-    if (BrawlerBP.Class)
-    {
-        BrawlerClass = BrawlerBP.Class;
-    }
+    NaiveAIClass = ATBS_NaiveAI::StaticClass();
+    SmartAIClass = ATBS_SmartAI::StaticClass();
+    AISelectionWidgetClass = UAISelectionWidget::StaticClass(); 
 
-    static ConstructorHelpers::FClassFinder<ASniper> SniperBP(TEXT("/Game/Blueprints/BP_Sniper"));
-    if (SniperBP.Class)
-    {
-        SniperClass = SniperBP.Class;
-    }
 }
 
 void ATBS_GameMode::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Span Grid
+    // Initialize the Grid first
     if (GridClass != nullptr)
     {
         GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
@@ -76,8 +70,7 @@ void ATBS_GameMode::BeginPlay()
         return;
     }
 
-
-    // Find the human player
+    // Find/Initialize the human player
     APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
     if (!PlayerController)
     {
@@ -106,24 +99,15 @@ void ATBS_GameMode::BeginPlay()
         }
     }
 
-    // Ensure Players array is properly populated
+    // Set up camera position for the human player
+    float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
+    float Zposition = 3000.0f;
+    FVector CameraPos(CameraPosX, CameraPosX, Zposition);
+    HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
+
+    // Temporarily add HumanPlayer to Players array
     Players.Empty();
     Players.Add(HumanPlayer);
-
-    // Spawn AI player ONCE
-    auto* AI = GetWorld()->SpawnActor<ATBS_NaiveAI>(FVector(), FRotator());
-    if (AI)
-    {
-        Players.Add(AI);
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("AI Player added successfully"));
-    }
-    else
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn AI Player"));
-    }
-    // Find all players (Human and AI) -> added in case of more players
-    TArray<AActor*> FoundPlayers;
-    UGameplayStatics::GetAllActorsWithInterface(GetWorld(), UTBS_PlayerInterface::StaticClass(), FoundPlayers);
 
     // Set initial values for units per player
     UnitsRemaining.SetNum(NumberOfPlayers);
@@ -132,25 +116,18 @@ void ATBS_GameMode::BeginPlay()
         UnitsRemaining[i] = UnitsPerPlayer;
     }
 
+    // Start with AI selection phase
+    CurrentPhase = EGamePhase::AI_SELECTION;
 
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("BeginPlay - Setting up players"));
+    // Initialize default value
+    bUseSmartAI = false;
 
-    float CameraPosX = ((GameGrid->TileSize * GridSize) + ((GridSize - 1) * GameGrid->TileSize * GameGrid->CellPadding)) * 0.5f;
-    float Zposition = 3000.0f;
-    FVector CameraPos(CameraPosX, CameraPosX, Zposition);
-    HumanPlayer->SetActorLocationAndRotation(CameraPos, FRotationMatrix::MakeFromX(FVector(0, 0, -1)).Rotator());
+    // Add a slight delay before showing the AI selection UI
+    FTimerHandle TimerHandle;
+    GetWorldTimerManager().SetTimer(TimerHandle, this, &ATBS_GameMode::ShowAISelectionUI, 0.5f, false);
 
-    // Add debug messages for game start
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Game Starting - Coin Toss"));
-
-    // Place some obstacles 
-    SpawnObstacles();
-
-    // Start the game with a coin toss
-    int32 StartingPlayer = SimulateCoinToss();
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Coin Toss Result: Player %d starts"), StartingPlayer));
-
-    StartPlacementPhase(StartingPlayer);
+    // Debug message for game start
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, TEXT("Game Starting - Choose AI Difficulty"));
 }
 
 void ATBS_GameMode::ShowUnitSelectionUI(bool bContextAware)
@@ -333,11 +310,262 @@ void ATBS_GameMode::OnUnitTypeSelected(EUnitType SelectedType)
     }
 }
 
+void ATBS_GameMode::ShowAISelectionUI()
+{
+    // Clear any existing widgets
+    HideUnitSelectionUI();
+    if (CoinTossWidget && CoinTossWidget->IsInViewport())
+    {
+        CoinTossWidget->RemoveFromParent();
+        CoinTossWidget = nullptr;
+    }
+    if (AISelectionWidget && AISelectionWidget->IsInViewport())
+    {
+        AISelectionWidget->RemoveFromParent();
+        AISelectionWidget = nullptr;
+    }
+
+    // Create a new AI selection widget
+    if (AISelectionWidgetClass)
+    {
+        // Get the player controller
+        APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+        if (!PlayerController)
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
+            return;
+        }
+
+        // Create the widget
+        AISelectionWidget = CreateWidget<UUserWidget>(PlayerController, AISelectionWidgetClass);
+
+        if (AISelectionWidget)
+        {
+            // Add it to viewport
+            AISelectionWidget->AddToViewport(100);
+
+            // Enable input for the player controller
+            FInputModeUIOnly InputMode;
+            InputMode.SetWidgetToFocus(AISelectionWidget->TakeWidget());
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            PlayerController->SetInputMode(InputMode);
+            PlayerController->bShowMouseCursor = true;
+
+            // Find buttons if they exist
+            UButton* EasyButton = Cast<UButton>(AISelectionWidget->GetWidgetFromName(TEXT("EasyButton")));
+            UButton* HardButton = Cast<UButton>(AISelectionWidget->GetWidgetFromName(TEXT("HardButton")));
+
+            // Set up callbacks if buttons exist
+            if (EasyButton)
+            {
+                EasyButton->OnClicked.AddDynamic(this, &ATBS_GameMode::OnEasyAISelected);
+            }
+
+            if (HardButton)
+            {
+                HardButton->OnClicked.AddDynamic(this, &ATBS_GameMode::OnHardAISelected);
+            }
+
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("AI Selection UI shown"));
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to create AI Selection Widget"));
+        }
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("AISelectionWidgetClass is not set"));
+    }
+}
+
+void ATBS_GameMode::HideAISelectionUI()
+{
+    if (AISelectionWidget && AISelectionWidget->IsInViewport())
+    {
+        AISelectionWidget->RemoveFromParent();
+        AISelectionWidget = nullptr;
+
+        // Restore game input mode
+        APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+        if (PlayerController)
+        {
+            FInputModeGameOnly InputMode;
+            PlayerController->SetInputMode(InputMode);
+        }
+    }
+}
+
+void ATBS_GameMode::OnEasyAISelected()
+{
+    bUseSmartAI = false;
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Easy AI (Random) selected"));
+
+    // Hide the selection UI
+    HideAISelectionUI();
+
+    // Update GameInstance with a message
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        GameInstance->SetTurnMessage(TEXT("Easy AI (Random) selected - Starting game..."));
+    }
+
+    // Proceed with game initialization
+    InitializeGame();
+}
+
+void ATBS_GameMode::OnHardAISelected()
+{
+    bUseSmartAI = true;
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Hard AI (Smart) selected"));
+
+    // Hide the selection UI
+    HideAISelectionUI();
+
+    // Update GameInstance with a message
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        GameInstance->SetTurnMessage(TEXT("Hard AI (Smart) selected - Starting game..."));
+    }
+
+    // Proceed with game initialization
+    InitializeGame();
+}
+
+void ATBS_GameMode::OnAIDifficultySelected(bool bIsHardAI)
+{
+    // Set the AI difficulty based on the parameter
+    this->bUseSmartAI = bIsHardAI;
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        FString::Printf(TEXT("%s AI selected"), bIsHardAI ? TEXT("Smart") : TEXT("Naive")));
+
+    // Hide the selection UI
+    HideAISelectionUI();
+
+    // Update GameInstance with a message
+    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+    if (GameInstance)
+    {
+        GameInstance->SetTurnMessage(FString::Printf(TEXT("%s AI selected - Starting game..."),
+            bIsHardAI ? TEXT("Hard (Smart)") : TEXT("Easy (Random)")));
+    }
+
+    // Proceed with game initialization
+    InitializeGame();
+}
+
+void ATBS_GameMode::InitializeGame()
+{
+    // Spawn Grid if not already spawned
+    if (!GameGrid && GridClass != nullptr)
+    {
+        GameGrid = GetWorld()->SpawnActor<AGrid>(GridClass);
+        if (GameGrid)
+        {
+            GameGrid->Size = GridSize;
+            GameGrid->GenerateGrid();
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn grid"));
+            return;
+        }
+    }
+
+    // Find the human player
+    APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+    if (!PlayerController)
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("No Player Controller found"));
+        return;
+    }
+
+    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
+    if (!HumanPlayer)
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = PlayerController;
+        HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
+
+        if (HumanPlayer)
+        {
+            PlayerController->Possess(HumanPlayer);
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn HumanPlayer"));
+            return;
+        }
+    }
+
+    // Ensure Players array is properly populated
+    Players.Empty();
+    Players.Add(HumanPlayer);
+
+    // Spawn the selected AI player
+    AActor* AI = nullptr;
+    if (bUseSmartAI)
+    {
+        if (SmartAIClass)
+        {
+            AI = GetWorld()->SpawnActor<AActor>(SmartAIClass, FVector(), FRotator());
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("SmartAIClass not set"));
+        }
+    }
+    else
+    {
+        if (NaiveAIClass)
+        {
+            AI = GetWorld()->SpawnActor<AActor>(NaiveAIClass, FVector(), FRotator());
+        }
+        else
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("NaiveAIClass not set"));
+        }
+    }
+
+    if (AI)
+    {
+        Players.Add(AI);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+            FString::Printf(TEXT("%s AI Player added successfully"), bUseSmartAI ? TEXT("Smart") : TEXT("Naive")));
+    }
+    else
+    {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn AI Player"));
+    }
+
+    // Set initial values for units per player
+    UnitsRemaining.SetNum(NumberOfPlayers);
+    for (int32 i = 0; i < NumberOfPlayers; i++)
+    {
+        UnitsRemaining[i] = UnitsPerPlayer;
+    }
+
+    // Place obstacles
+    SpawnObstacles();
+
+    // Start the game with a coin toss
+    int32 StartingPlayer = SimulateCoinToss();
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Coin Toss Result: Player %d starts"), StartingPlayer));
+
+    StartPlacementPhase(StartingPlayer);
+}
+
 // SimulateCoinToss to show the result
 int32 ATBS_GameMode::SimulateCoinToss()
 {
-    // Existing code
+
     int32 StartingPlayer = FMath::RandRange(0, 1);
+
+    // Store the player who won the coin toss
+    FirstPlayerIndex = StartingPlayer;
 
     // Get game instance and set the starting player message
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
@@ -494,6 +722,9 @@ void ATBS_GameMode::StartGameplayPhase()
         BrawlerPlaced[i] = true;
         SniperPlaced[i] = true;
     }
+
+    // Reset to the player who won the coin toss for the gameplay phase
+    CurrentPlayer = FirstPlayerIndex;
 
     // Clear any UI widgets that might be causing interference
     if (UnitSelectionWidget && UnitSelectionWidget->IsInViewport())

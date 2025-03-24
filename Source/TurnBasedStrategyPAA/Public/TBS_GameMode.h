@@ -13,10 +13,11 @@
 UENUM(BlueprintType)
 enum class EGamePhase : uint8
 {
-	NONE        UMETA(DisplayName = "None"),
-	SETUP		UMETA(DisplayName = "Setup"),
-	GAMEPLAY	UMETA(DisplayName = "Gameplay"),
-	ROUND_END   UMETA(DisplayName = "Round End")
+	NONE			UMETA(DisplayName = "None"),
+	AI_SELECTION	UMETA(DisplayName = "AI Selection"),
+	SETUP			UMETA(DisplayName = "Setup"),
+	GAMEPLAY		UMETA(DisplayName = "Gameplay"),
+	ROUND_END		UMETA(DisplayName = "Round End")
 };
 
 /**
@@ -52,6 +53,9 @@ public:
 	// Array of player actors
 	UPROPERTY(Transient)
 	TArray<AActor*> Players;
+
+	// Stores the player who won the coin toss
+	int32 FirstPlayerIndex;
 
 	// Identifier for the current player
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Game Rules")
@@ -95,12 +99,26 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Playing Units")
 	int32 UnitsPlaced;
 
+	// Flag for which AI type to use
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI")
+	bool bUseSmartAI;
+
+	// AI classes
+	UPROPERTY(EditDefaultsOnly, Category = "AI")
+	TSubclassOf<AActor> NaiveAIClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI")
+	TSubclassOf<AActor> SmartAIClass;
+
 	// UI Widget related functions
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<UUserWidget> UnitSelectionWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<UUserWidget> CoinTossWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<UUserWidget> AISelectionWidgetClass;
 
 	// Unit Selection functions
 	UFUNCTION(BlueprintCallable, Category = "UI")
@@ -111,6 +129,28 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	void OnUnitTypeSelected(EUnitType SelectedType);
+
+	// AI Selection functions
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowAISelectionUI();
+
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void HideAISelectionUI();
+
+	// AI Selection button handlers
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void OnEasyAISelected();
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void OnHardAISelected();
+
+	// Main AI difficulty selection handler
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void OnAIDifficultySelected(bool bIsHardAI);
+
+	// Game initialization after AI selection
+	UFUNCTION(BlueprintCallable, Category = "Game Flow")
+	void InitializeGame();
 
 	// Coin toss display
 	UFUNCTION(BlueprintCallable, Category = "UI")
@@ -137,6 +177,9 @@ public:
 
 	UPROPERTY()
 	UUserWidget* RoundEndWidget;
+
+	UPROPERTY()
+	UUserWidget* AISelectionWidget;
 
 	// Simulate coin toss to determine who starts
 	UFUNCTION(BlueprintCallable, Category = "Game Flow")

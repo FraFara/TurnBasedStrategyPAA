@@ -11,9 +11,9 @@ ASniper::ASniper()
     UnitName = "Sniper";
     MovementRange = 3;
     AttackType = EAttackType::RANGE;
-    AttackRange = 100;
-    MinDamage = 40;
-    MaxDamage = 80;
+    AttackRange = 10;
+    MinDamage = 4;
+    MaxDamage = 8;
     Health = 20;
     MaxHealth = 20;
 
