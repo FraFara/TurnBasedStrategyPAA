@@ -208,9 +208,10 @@ TArray<ATile*> AUnit::GetMovementTiles()
         ATile* Tile = Queue[0];
         Queue.RemoveAt(0);
 
-        if (!Tile) 
+        // Skip null tiles or explicit obstacle tiles immediately
+        if (!Tile || Tile->IsObstacle() || Tile->GetOwner() == -2)
         {
-            continue; // check 
+            continue;
         }
 
         FVector2D TilePos = Tile->GetGridPosition();
@@ -219,7 +220,7 @@ TArray<ATile*> AUnit::GetMovementTiles()
         // If this isn't the current tile and it's a valid destination, add it to valid tiles
         if (Tile != CurrentTile &&
             Tile->GetTileStatus() == ETileStatus::EMPTY &&
-            !Tile->IsObstacle() &&
+            Tile->GetOwner() != -2 && // Explicit check for obstacle owner
             !Tile->GetOccupyingUnit())
         {
             ValidTiles.Add(Tile);
@@ -237,38 +238,59 @@ TArray<ATile*> AUnit::GetMovementTiles()
             for (FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
-                
-                // Check if tiles is within grid
+
+                // Check if the position is within grid bounds
                 if (!Grid->TileMap.Contains(NewPos))
-                {
                     continue;
-                }
 
                 ATile* NextTile = Grid->TileMap[NewPos];
+
+                // Skip if null, already processed, or is an obstacle
+                if (!NextTile || Distance.Contains(NextTile))
+                    continue;
+
+                // More checks for obstacles
                 if (NextTile->IsObstacle())
-                {
                     continue;
-                }
 
-                if (NextTile->GetTileStatus() != ETileStatus::EMPTY)
-                {
+                if (NextTile->GetOwner() == -2)
                     continue;
-                }
 
-                if (NextTile->GetOccupyingUnit())
-                {
+                if (NextTile->GetTileStatus() == ETileStatus::OCCUPIED && !NextTile->GetOccupyingUnit())
                     continue;
-                }
 
-                if (Distance.Contains(NextTile))
-                {
+                // Skip occupied tiles
+                if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->GetOccupyingUnit())
                     continue;
-                }
 
                 // If all checks passed, this is a valid tile to explore
                 Queue.Add(NextTile);
                 Distance.Add(NextTile, CurrentDistance + 1);
             }
+        }
+    }
+
+    // Final filtering - double check no obstacles are in the valid tiles
+    for (int32 i = ValidTiles.Num() - 1; i >= 0; i--)
+    {
+        ATile* Tile = ValidTiles[i];
+        if (!Tile || Tile->IsObstacle() || Tile->GetOwner() == -2 ||
+            (Tile->GetTileStatus() == ETileStatus::OCCUPIED && !Tile->GetOccupyingUnit()))
+        {
+            ValidTiles.RemoveAt(i);
+        }
+    }
+
+    // Before returning, check for any problematic obstacle tiles
+    for (ATile* Tile : ValidTiles)
+    {
+        // Check for tiles that should be obstacles but are being included
+        if (Tile->GetOwner() == -2 || Tile->IsObstacle())
+        {
+            GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red,
+                FString::Printf(TEXT("WARNING: Obstacle at (%f,%f) incorrectly included in movement tiles! Status: %d, Owner: %d"),
+                    Tile->GetGridPosition().X, Tile->GetGridPosition().Y,
+                    (int32)Tile->GetTileStatus(), Tile->GetOwner()));
         }
     }
 

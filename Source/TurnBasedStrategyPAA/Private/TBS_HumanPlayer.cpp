@@ -48,46 +48,6 @@ void ATBS_HumanPlayer::BeginPlay()
 
 	// Log that the human player is ready
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Human Player Initialized"));
-
-//	// Load default highlight materials if not set in Blueprint
-//	if (!MovementHighlightMaterial)
-//	{
-//		static ConstructorHelpers::FObjectFinder<UMaterialInterface> MovementMatFinder(TEXT("/Game/Materials/M_MovementHighlight"));
-//		if (MovementMatFinder.Succeeded())
-//		{
-//			MovementHighlightMaterial = MovementMatFinder.Object;
-//		}
-//		else
-//		{
-//			// Create a dynamic material instance if asset not found
-//			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(UMaterial::GetDefaultMaterial(MD_Surface), this);
-//			if (DynMaterial)
-//			{
-//				DynMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(0.0f, 0.5f, 1.0f, 0.5f)); // Blue
-//				MovementHighlightMaterial = DynMaterial;
-//			}
-//		}
-//	}
-//
-//	if (!AttackHighlightMaterial)
-//	{
-//		static ConstructorHelpers::FObjectFinder<UMaterialInterface> AttackMatFinder(TEXT("/Game/Materials/M_AttackHighlight"));
-//		if (AttackMatFinder.Succeeded())
-//		{
-//			AttackHighlightMaterial = AttackMatFinder.Object;
-//		}
-//		else
-//		{
-//			// Create a dynamic material instance if asset not found
-//			UMaterialInstanceDynamic* DynMaterial = UMaterialInstanceDynamic::Create(UMaterial::GetDefaultMaterial(MD_Surface), this);
-//			if (DynMaterial)
-//			{
-//				DynMaterial->SetVectorParameterValue(FName("Color"), FLinearColor(1.0f, 0.2f, 0.2f, 0.5f)); // Red
-//				AttackHighlightMaterial = DynMaterial;
-//			}
-//		}
-//	}
-//
 }
 
 // Called every frame
@@ -930,16 +890,19 @@ void ATBS_HumanPlayer::HighlightMovementTiles()
 		return;
 	}
 
-	// Debug selected unit info
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("Selected Unit: %s, Owner: %d, Location: (%f,%f)"),
-			*SelectedUnit->GetUnitName(),
-			SelectedUnit->GetOwnerID(),
-			SelectedUnit->GetCurrentTile()->GetGridPosition().X,
-			SelectedUnit->GetCurrentTile()->GetGridPosition().Y));
+	TArray<ATile*> HighlightedMovementTilesBeta;
 
 	// Get and highlight movement tiles
-	HighlightedMovementTiles = SelectedUnit->GetMovementTiles();
+	HighlightedMovementTilesBeta = SelectedUnit->GetMovementTiles();
+
+	for (int32 i = 0; i <= HighlightedMovementTilesBeta.Num() - 1; i++)
+	{
+		ATile* Tile = HighlightedMovementTilesBeta[i];
+		if (!Tile->IsObstacle())
+		{
+			HighlightedMovementTiles.Add(Tile);
+		}
+	}
 
 	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
 		FString::Printf(TEXT("Found %d movement tiles"), HighlightedMovementTiles.Num()));

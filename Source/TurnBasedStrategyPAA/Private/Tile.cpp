@@ -21,12 +21,6 @@ ATile::ATile()
     // Set the StaticMeshComponent to be at the origin of the Scene component
     StaticMeshComponent->SetRelativeLocation(FVector::ZeroVector);
 
-    //// Enable proper collision for the static mesh component
-    //StaticMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-    //StaticMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
-    //StaticMeshComponent->SetCollisionObjectType(ECC_WorldStatic);
-    //StaticMeshComponent->SetGenerateOverlapEvents(true);
-
     // Make sure the mesh is visible and can be clicked
     StaticMeshComponent->SetVisibility(true);
     StaticMeshComponent->bSelectable = true;
@@ -92,12 +86,6 @@ void ATile::SetAsObstacle()
     {
         ProcessEvent(Function, nullptr);
     }
-
-    // Debug message to confirm obstacle setting
-    GEngine->AddOnScreenDebugMessage(-1, 1.f, FColor::Yellow,
-        FString::Printf(TEXT("SET OBSTACLE at (%f,%f) - Status: %d, Owner: %d"),
-            TileGridPosition.X, TileGridPosition.Y,
-            (int32)Status, PlayerOwner));
 }
 
 // Add this helper method to explicitly verify if a tile is correctly set as an obstacle
@@ -126,13 +114,10 @@ bool ATile::VerifyObstacleStatus() const
 
 void ATile::SetHighlightForMovement()
 {
-    // NEVER highlight obstacle tiles - check explicitly
-    if (Status == ETileStatus::OCCUPIED && PlayerOwner == -2)
+    // Never highlight obstacle tiles
+    if (IsObstacle() || GetOwner() == -2 ||
+        (GetTileStatus() == ETileStatus::OCCUPIED && !GetOccupyingUnit()))
     {
-        // Debug that this obstacle is being skipped
-        GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Red,
-            FString::Printf(TEXT("Skipping obstacle highlight at (%f,%f)"),
-                TileGridPosition.X, TileGridPosition.Y));
         return;
     }
 
@@ -152,13 +137,10 @@ void ATile::SetHighlightForMovement()
 
 void ATile::SetHighlightForAttack()
 {
-    // NEVER highlight obstacle tiles - check explicitly
-    if (Status == ETileStatus::OCCUPIED && PlayerOwner == -2)
+    // Never highlight obstacle tiles
+    if (IsObstacle() || GetOwner() == -2 ||
+        (GetTileStatus() == ETileStatus::OCCUPIED && !GetOccupyingUnit()))
     {
-        // Debug that this obstacle is being skipped
-        GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Red,
-            FString::Printf(TEXT("Skipping obstacle attack highlight at (%f,%f)"),
-                TileGridPosition.X, TileGridPosition.Y));
         return;
     }
 
@@ -196,8 +178,9 @@ void ATile::ClearHighlight()
 
 bool ATile::IsObstacle() const
 {
-    // A tile is an obstacle if it has OCCUPIED status and owner ID of -2
-    return (Status == ETileStatus::OCCUPIED && PlayerOwner == -2);
+    return (Status == ETileStatus::OCCUPIED && PlayerOwner == -2) ||
+        (PlayerOwner == -2) || // Even if status is wrong
+        (Status == ETileStatus::OCCUPIED && !OccupyingUnit); // Occupied with no unit = obstacle
 }
 
 // Called when the game starts or when spawned
