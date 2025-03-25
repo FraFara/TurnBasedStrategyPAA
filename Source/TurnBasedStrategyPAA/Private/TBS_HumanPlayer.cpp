@@ -30,6 +30,7 @@ ATBS_HumanPlayer::ATBS_HumanPlayer()
 	UnitColor = EUnitColor::BLUE;
 	IsMyTurn = false;
 	SelectedUnit = nullptr;
+	SelectedTile = nullptr;
 	// Initializes current action to None
 	CurrentAction = EPlayerAction::NONE;
 
@@ -278,10 +279,18 @@ void ATBS_HumanPlayer::OnClick()
 					{
 						// Deselect if already selected
 						SelectedUnit = nullptr;
+						SelectedTile = nullptr;
 					}
 					else
 					{
 						SelectedUnit = UnitOnTile;
+						SelectedTile = ClickedTile;
+
+						// Highlight the tile under the selected unit
+						if (SelectedTile)
+						{
+							SelectedTile->SetHighlightForSelection();
+						}
 					}
 				}
 			}
@@ -292,7 +301,6 @@ void ATBS_HumanPlayer::OnClick()
 			{
 				TArray<ATile*> MovementTiles = SelectedUnit->GetMovementTiles();
 
-				// More robust tile matching
 				ATile* MatchedTile = nullptr;
 				for (ATile* MovementTile : MovementTiles)
 				{
@@ -310,6 +318,12 @@ void ATBS_HumanPlayer::OnClick()
 					FVector2D FromPos = SelectedUnit->GetCurrentTile()->GetGridPosition();
 					FVector2D ToPos = MatchedTile->GetGridPosition();
 
+					// Clear current selection highlight
+					if (SelectedTile)
+					{
+						SelectedTile->ClearHighlight();
+					}
+
 					if (SelectedUnit->MoveToTile(MatchedTile))
 					{
 						// Record the move through the GameMode
@@ -323,6 +337,10 @@ void ATBS_HumanPlayer::OnClick()
 
 						ClearHighlightedTiles();
 
+						// Update the selected tile to the new position and highlight it
+						SelectedTile = MatchedTile;
+						SelectedTile->SetHighlightForSelection();
+
 						// Check if unit can still attack
 						if (!SelectedUnit->HasAttacked() && GameInstance)
 						{
@@ -331,6 +349,12 @@ void ATBS_HumanPlayer::OnClick()
 						else
 						{
 							SelectedUnit = nullptr;
+							// Clear selection highlight before nullifying SelectedTile
+							if (SelectedTile)
+							{
+								SelectedTile->ClearHighlight();
+							}
+							SelectedTile = nullptr;
 							CheckAllUnitsFinished();
 						}
 					}
@@ -368,7 +392,14 @@ void ATBS_HumanPlayer::OnClick()
 				}
 
 				ClearHighlightedTiles();
+
+				// Clear selection highlight before deselecting
+				if (SelectedTile)
+				{
+					SelectedTile->ClearHighlight();
+				}
 				SelectedUnit = nullptr;
+				SelectedTile = nullptr;
 
 				// Check if all units have completed their actions
 				CheckAllUnitsFinished();
@@ -392,10 +423,16 @@ void ATBS_HumanPlayer::OnRightClick()
 	// If no action is active but a unit is selected, deselect it
 	else if (SelectedUnit)
 	{
+		// Clear the selection highlight
+		if (SelectedTile)
+		{
+			SelectedTile->ClearHighlight();
+		}
+
 		SelectedUnit = nullptr;
+		SelectedTile = nullptr;
 
 		ClearHighlightedTiles();
-		
 	}
 }
 
@@ -426,8 +463,15 @@ void ATBS_HumanPlayer::SkipUnitTurn()
 		SelectedUnit->bHasMoved = true;
 		SelectedUnit->bHasAttacked = true;
 
+		// Clear the selection highlight
+		if (SelectedTile)
+		{
+			SelectedTile->ClearHighlight();
+		}
+
 		// Clears the selection
 		SelectedUnit = nullptr;
+		SelectedTile = nullptr;
 
 		// Check if all units have completed their actions
 		CheckAllUnitsFinished();

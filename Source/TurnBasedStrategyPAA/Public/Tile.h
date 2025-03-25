@@ -59,6 +59,9 @@ public:
 	// Called to Highlight attack tiles
 	void SetHighlightForAttack();
 
+	// Called to Highlight selected unit's tile
+	void SetHighlightForSelection();
+
 	void ClearHighlight();
 
 	// Check if this tile is an obstacle

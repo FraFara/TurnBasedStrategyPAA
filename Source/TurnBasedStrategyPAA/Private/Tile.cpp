@@ -142,6 +142,29 @@ void ATile::SetHighlightForAttack()
     }
 }
 
+void ATile::SetHighlightForSelection()
+{
+    // Never highlight obstacle tiles
+    if (IsObstacle() || GetOwner() == -2 ||
+        (GetTileStatus() == ETileStatus::OCCUPIED && !GetOccupyingUnit()))
+    {
+        return;
+    }
+
+    // Store the original material the first time we highlight
+    if (!OriginalMaterial && StaticMeshComponent)
+    {
+        OriginalMaterial = StaticMeshComponent->GetMaterial(0);
+    }
+
+    // Call the blueprint event to update the visual appearance
+    if (UFunction* Function = FindFunction(TEXT("HighlightForSelection")))
+    {
+        ProcessEvent(Function, nullptr);
+        bIsHighlighted = true;
+    }
+}
+
 void ATile::ClearHighlight()
 {
     // If this is an obstacle tile, don't reset its material

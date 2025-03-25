@@ -165,43 +165,28 @@ void AGrid::ValidateAllObstacles()
 
 bool AGrid::ValidateConnectivity()
 {
-	// Count how many empty tilesare found
+	// First, collect all empty, walkable tiles
 	TArray<ATile*> EmptyTiles;
-	int32 totalTiles = 0;
-	int32 emptyTiles = 0;
-	int32 occupiedTiles = 0;
-	int32 obstacleTiles = 0;
 
-	// First pass: count different types of tiles
 	for (ATile* Tile : TileArray)
 	{
-		totalTiles++;
-
 		if (!Tile)
 			continue;
 
+		// Consider a tile empty and walkable if:
+		// 1. It has EMPTY status AND
+		// 2. It's not an obstacle
 		if (Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->IsObstacle())
 		{
 			EmptyTiles.Add(Tile);
-			emptyTiles++;
-		}
-		else if (Tile->IsObstacle() || Tile->GetOwner() == -2)
-		{
-			obstacleTiles++;
-		}
-		else
-		{
-			occupiedTiles++;
 		}
 	}
 
-	// If there are 0 or 1 empty tiles, they're trivially connected
+	// If there are 0 or 1 empty tiles, connectivity is trivial
 	if (EmptyTiles.Num() <= 1)
-	{
 		return true;
-	}
 
-	// Use BFS to check connectivity from the first empty tile
+	// Run a BFS from the first empty tile to check if all other empty tiles are reachable
 	ATile* StartTile = EmptyTiles[0];
 	TArray<ATile*> Queue;
 	TSet<ATile*> Visited;
@@ -216,7 +201,7 @@ bool AGrid::ValidateConnectivity()
 
 		FVector2D CurrentPos = CurrentTile->GetGridPosition();
 
-		// Check all four adjacent tiles
+		// Check adjacent tiles (up, down, left, right)
 		TArray<FVector2D> Directions = {
 			FVector2D(0, 1),
 			FVector2D(0, -1),
@@ -228,21 +213,18 @@ bool AGrid::ValidateConnectivity()
 		{
 			FVector2D NewPos = CurrentPos + Dir;
 
-			// Skip if outside grid bounds
+			// Skip if outside grid
 			if (!TileMap.Contains(NewPos))
 				continue;
 
 			ATile* NextTile = TileMap[NewPos];
 
-			// Skip if null, already visited, or obstacle
+			// Skip if null, already visited, or not an empty tile
 			if (!NextTile || Visited.Contains(NextTile))
 				continue;
 
-			// Only consider empty (walkable) tiles
-			if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->IsObstacle() || NextTile->GetOwner() == -2)
-				continue;
-
-			if (NextTile->GetOccupyingUnit() != nullptr)
+			// Only consider empty, walkable tiles
+			if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->IsObstacle())
 				continue;
 
 			Queue.Add(NextTile);
@@ -250,10 +232,9 @@ bool AGrid::ValidateConnectivity()
 		}
 	}
 
-	// All empty tiles should have been visited if they're connected
-	return Visited.Num() == EmptyTiles.Num();
+	// All empty tiles should be visited if they're connected
+	return (Visited.Num() == EmptyTiles.Num());
 }
-
 
 // returns true if the tile is in the grid
 inline bool AGrid::IsValidPosition(const FVector2D Position) const

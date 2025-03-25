@@ -54,6 +54,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Unit Info")
 	AUnit* LastClickedUnit;
 
+	UPROPERTY()
+	ATile* SelectedTile;
 
 protected:
 	// Called when the game starts or when spawned

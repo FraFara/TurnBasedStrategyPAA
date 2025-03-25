@@ -1185,174 +1185,125 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     // Validate grid existence
     if (!GameGrid)
     {
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Error: GameGrid is null"));
         return;
     }
-
-    if (ObstaclePercentage <= 0.0f)
-        return;
-
-    // Calculate target obstacles
-    int32 TotalCells = GridSize * GridSize;
-    int32 TargetObstacles = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
 
     // Clear any existing obstacles first
     for (ATile* Tile : GameGrid->TileArray)
     {
-        if (Tile && Tile->IsObstacle())
+        if (Tile && (Tile->IsObstacle() || Tile->GetOwner() == -2))
         {
             Tile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
         }
     }
 
-    // Build array of all tiles
-    TArray<ATile*> AllTiles;
-    for (ATile* Tile : GameGrid->TileArray)
+    // Calculate target obstacles
+    int32 TotalCells = GridSize * GridSize;
+    int32 TargetObstacles = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
+
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+        FString::Printf(TEXT("Attempting to place %d obstacles (%.1f%%)"),
+            TargetObstacles, ObstaclePercentage));
+
+    // Create an array of all valid tile positions
+    TArray<FVector2D> ValidPositions;
+    for (int32 x = 1; x < GridSize - 1; x++)
     {
-        if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->GetOccupyingUnit())
+        for (int32 y = 1; y < GridSize - 1; y++)
         {
-            AllTiles.Add(Tile);
+            ValidPositions.Add(FVector2D(x, y));
         }
     }
 
     // Shuffle for randomness
-    for (int32 i = AllTiles.Num() - 1; i > 0; i--)
+    for (int32 i = ValidPositions.Num() - 1; i > 0; i--)
     {
         int32 SwapIndex = FMath::RandRange(0, i);
         if (i != SwapIndex)
         {
-            AllTiles.Swap(i, SwapIndex);
+            ValidPositions.Swap(i, SwapIndex);
         }
     }
 
-    // DIRECT PLACEMENT APPROACH
+    // First pass: Just place obstacles directly without connectivity checks
     int32 PlacedObstacles = 0;
-
-    // Determine how many obstacles to place without connectivity checks
-    int32 DirectPlacementTarget = TargetObstacles;
-
-    // If high percentage (>60%), 
-    // reserve some for connectivity-safe placement
-    if (ObstaclePercentage > 60.0f)
+    for (int32 i = 0; i < ValidPositions.Num() && PlacedObstacles < TargetObstacles; i++)
     {
-        DirectPlacementTarget = FMath::RoundToInt(TotalCells * 0.6f);
-    }
+        FVector2D Pos = ValidPositions[i];
 
-    // Place obstacles directly
-    for (int32 i = 0; i < AllTiles.Num() && PlacedObstacles < DirectPlacementTarget; i++)
-    {
-        ATile* Tile = AllTiles[i];
-
-        if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY || Tile->GetOccupyingUnit())
+        if (!GameGrid->TileMap.Contains(Pos))
             continue;
 
-        // For high percentages, do an occasional connectivity check to avoid completely
-        // blocking off sections of the map
-        if (ObstaclePercentage >= 40.0f && FMath::RandRange(0, 9) == 0) // 10% chance
-        {
-            // Temporarily mark as obstacle
-            ETileStatus OriginalStatus = Tile->GetTileStatus();
-            int32 OriginalOwner = Tile->GetOwner();
+        ATile* Tile = GameGrid->TileMap[Pos];
 
-            Tile->SetTileStatus(-2, ETileStatus::OCCUPIED);
+        // Skip invalid tiles
+        if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY ||
+            Tile->GetOccupyingUnit() || Tile->IsObstacle())
+            continue;
 
-            // Check connectivity
-            bool IsConnected = GameGrid->ValidateConnectivity();
-
-            if (!IsConnected)
-            {
-                // Revert if it breaks connectivity
-                Tile->SetTileStatus(OriginalOwner, OriginalStatus);
-                continue;
-            }
-
-            // Restore to empty so SetAsObstacle can properly set all properties
-            Tile->SetTileStatus(OriginalOwner, OriginalStatus);
-        }
-
-        // Place obstacle
+        // Place obstacle directly
         Tile->SetAsObstacle();
-
-        // Verify it worked
-        if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
-        {
-            PlacedObstacles++;
-        }
+        PlacedObstacles++;
     }
 
-    if (PlacedObstacles < TargetObstacles && DirectPlacementTarget < TargetObstacles)
+    // Now check connectivity and fix if needed
+    bool IsConnected = GameGrid->ValidateConnectivity();
+    if (!IsConnected)
     {
-        // Rebuild available tiles array
-        TArray<ATile*> AvailableTiles;
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+            TEXT("Fixing connectivity by removing obstacles..."));
+
+        // Store all obstacles in an array
+        TArray<ATile*> Obstacles;
         for (ATile* Tile : GameGrid->TileArray)
         {
-            if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->GetOccupyingUnit())
+            if (Tile && Tile->IsObstacle())
             {
-                AvailableTiles.Add(Tile);
+                Obstacles.Add(Tile);
             }
         }
 
-        // Shuffle again
-        for (int32 i = AvailableTiles.Num() - 1; i > 0; i--)
+        // Shuffle so we remove random obstacles
+        for (int32 i = Obstacles.Num() - 1; i > 0; i--)
         {
             int32 SwapIndex = FMath::RandRange(0, i);
             if (i != SwapIndex)
             {
-                AvailableTiles.Swap(i, SwapIndex);
+                Obstacles.Swap(i, SwapIndex);
             }
         }
 
-        // Try to place remaining obstacles with connectivity checks
-        int32 MaxAttempts = FMath::Min(AvailableTiles.Num(), (TargetObstacles - PlacedObstacles) * 2);
-
-        for (int32 i = 0; i < MaxAttempts && PlacedObstacles < TargetObstacles; i++)
+        // Remove obstacles until connectivity is restored
+        for (ATile* Obstacle : Obstacles)
         {
-            ATile* Tile = AvailableTiles[i % AvailableTiles.Num()];
-
-            if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY || Tile->GetOccupyingUnit())
+            if (!Obstacle)
                 continue;
 
-            // Temporarily mark as obstacle
-            ETileStatus OriginalStatus = Tile->GetTileStatus();
-            int32 OriginalOwner = Tile->GetOwner();
+            // Remove obstacle
+            Obstacle->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
 
-            Tile->SetTileStatus(-2, ETileStatus::OCCUPIED);
-
-            // Check connectivity
-            bool IsConnected = GameGrid->ValidateConnectivity();
-
-            if (!IsConnected)
-            {
-                // Revert if it breaks connectivity
-                Tile->SetTileStatus(OriginalOwner, OriginalStatus);
-                continue;
-            }
-
-            // Complete obstacle setup
-            Tile->SetAsObstacle();
-
-            // Verify it worked
-            if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
-            {
-                PlacedObstacles++;
-            }
+            // Check if connectivity is restored
+            IsConnected = GameGrid->ValidateConnectivity();
+            if (IsConnected)
+                break;
         }
     }
 
-    // Final verification and report
-    int32 actualObstacles = 0;
+    // Final count
+    int32 FinalObstacles = 0;
     for (ATile* Tile : GameGrid->TileArray)
     {
-        if (Tile && Tile->GetTileStatus() == ETileStatus::OCCUPIED && Tile->GetOwner() == -2)
+        if (Tile && Tile->IsObstacle())
         {
-            actualObstacles++;
+            FinalObstacles++;
         }
     }
 
-    float FinalPercentage = (actualObstacles * 100.0f) / TotalCells;
+    float FinalPercentage = (FinalObstacles * 100.0f) / TotalCells;
 
-    // Final validations
-    GameGrid->ValidateAllObstacles();
-
-    // Check connectivity but only warn if it fails
-    bool IsFinallyConnected = GameGrid->ValidateConnectivity();
+    // Log final stats
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+        FString::Printf(TEXT("Final obstacles: %d/%d (%.1f%%)"),
+            FinalObstacles, TargetObstacles, FinalPercentage));
 }
