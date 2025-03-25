@@ -109,15 +109,15 @@ void ATBS_PlayerController::CancelAction()
     }
 }
 
-void ATBS_PlayerController::OnGameOver(bool bPlayerWon)
-{
-    // Handle game over state
-    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
-  
-    GameInstance->RecordGameResult(bPlayerWon);
-
-    // Show a message using screen debug messages
-    FString ResultMessage = bPlayerWon ? "You Won!" : "You Lost!";
-    GEngine->AddOnScreenDebugMessage(-1, 10.f, bPlayerWon ? FColor::Green : FColor::Red, ResultMessage);
-    
-}
+//void ATBS_PlayerController::OnGameOver(bool bPlayerWon)
+//{
+//    // Handle game over state
+//    UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
+//  
+//    GameInstance->RecordGameResult(bPlayerWon);
+//
+//    // Show a message using screen debug messages
+//    FString ResultMessage = bPlayerWon ? "You Won!" : "You Lost!";
+//    GEngine->AddOnScreenDebugMessage(-1, 10.f, bPlayerWon ? FColor::Green : FColor::Red, ResultMessage);
+//    
+//}

@@ -131,6 +131,7 @@ FVector2D AGrid::GetXYPositionByRelativeLocation(const FVector& Location) const
 void AGrid::ValidateAllObstacles()
 {
 	int32 fixedObstacles = 0;
+	int32 clearedPhantoms = 0;
 
 	for (ATile* Tile : TileArray)
 	{
@@ -155,39 +156,49 @@ void AGrid::ValidateAllObstacles()
 		}
 
 		// Clear any "phantom obstacles" - occupied tiles with no unit
-		if (Tile->GetTileStatus() == ETileStatus::OCCUPIED && !Tile->GetOccupyingUnit() && Tile->GetOwner() != -2)
+		else if (Tile->GetTileStatus() == ETileStatus::OCCUPIED &&
+			!Tile->GetOccupyingUnit() &&
+			Tile->GetOwner() != -2)
 		{
+			// Log this occurrence
+			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Orange,
+				FString::Printf(TEXT("Clearing phantom obstacle at (%d,%d)"),
+					(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
+
 			// Reset to empty state
 			Tile->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
+			clearedPhantoms++;
 		}
+	}
+
+	if (fixedObstacles > 0 || clearedPhantoms > 0)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
+			FString::Printf(TEXT("ValidateAllObstacles: Fixed %d obstacles, cleared %d phantoms"),
+				fixedObstacles, clearedPhantoms));
 	}
 }
 
 bool AGrid::ValidateConnectivity()
 {
-	// First, collect all empty, walkable tiles
-	TArray<ATile*> EmptyTiles;
-
+	// Find the first empty tile to start our search
+	ATile* StartTile = nullptr;
 	for (ATile* Tile : TileArray)
 	{
-		if (!Tile)
-			continue;
-
-		// Consider a tile empty and walkable if:
-		// 1. It has EMPTY status AND
-		// 2. It's not an obstacle
-		if (Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->IsObstacle())
+		if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->IsObstacle())
 		{
-			EmptyTiles.Add(Tile);
+			StartTile = Tile;
+			break;
 		}
 	}
 
-	// If there are 0 or 1 empty tiles, connectivity is trivial
-	if (EmptyTiles.Num() <= 1)
+	// If no empty tiles, connectivity is trivial
+	if (!StartTile)
+	{
 		return true;
+	}
 
-	// Run a BFS from the first empty tile to check if all other empty tiles are reachable
-	ATile* StartTile = EmptyTiles[0];
+	// Perform a simple BFS from the start tile
 	TArray<ATile*> Queue;
 	TSet<ATile*> Visited;
 
@@ -201,12 +212,12 @@ bool AGrid::ValidateConnectivity()
 
 		FVector2D CurrentPos = CurrentTile->GetGridPosition();
 
-		// Check adjacent tiles (up, down, left, right)
+		// Check all four neighboring tiles (up, down, left, right)
 		TArray<FVector2D> Directions = {
-			FVector2D(0, 1),
-			FVector2D(0, -1),
-			FVector2D(1, 0),
-			FVector2D(-1, 0)
+			FVector2D(0, 1),   // Up
+			FVector2D(0, -1),  // Down
+			FVector2D(1, 0),   // Right
+			FVector2D(-1, 0)   // Left
 		};
 
 		for (const FVector2D& Dir : Directions)
@@ -214,37 +225,102 @@ bool AGrid::ValidateConnectivity()
 			FVector2D NewPos = CurrentPos + Dir;
 
 			// Skip if outside grid
-			if (!TileMap.Contains(NewPos))
+			if (NewPos.X < 0 || NewPos.X >= Size || NewPos.Y < 0 || NewPos.Y >= Size)
 				continue;
 
-			ATile* NextTile = TileMap[NewPos];
+			// Get the tile at the new position
+			ATile* NextTile = nullptr;
+			if (TileMap.Contains(NewPos))
+			{
+				NextTile = TileMap[NewPos];
+			}
 
-			// Skip if null, already visited, or not an empty tile
+			// Skip if no tile, already visited, or not empty/walkable
 			if (!NextTile || Visited.Contains(NextTile))
 				continue;
 
-			// Only consider empty, walkable tiles
 			if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->IsObstacle())
 				continue;
 
-			Queue.Add(NextTile);
+			// Add to visited and queue
 			Visited.Add(NextTile);
+			Queue.Add(NextTile);
 		}
 	}
 
-	// All empty tiles should be visited if they're connected
-	return (Visited.Num() == EmptyTiles.Num());
+	// Count total empty tiles
+	int32 TotalEmptyTiles = 0;
+	for (ATile* Tile : TileArray)
+	{
+		if (Tile && Tile->GetTileStatus() == ETileStatus::EMPTY && !Tile->IsObstacle())
+		{
+			TotalEmptyTiles++;
+		}
+	}
+
+	int32 VisitedCount = Visited.Num();
+
+	// The grid is connected if we visited all empty tiles
+	return (VisitedCount == TotalEmptyTiles);
+}
+
+void AGrid::DiagnoseGridState()
+{
+	if (TileArray.Num() == 0)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("ERROR: No tiles in grid"));
+		return;
+	}
+
+	int32 totalTiles = TileArray.Num();
+	int32 emptyTiles = 0;
+	int32 occupiedTiles = 0;
+	int32 obstacleTiles = 0;
+	int32 inconsistentTiles = 0;
+
+	for (ATile* Tile : TileArray)
+	{
+		if (!Tile)
+			continue;
+
+		ETileStatus status = Tile->GetTileStatus();
+		int32 owner = Tile->GetOwner();
+		bool isObstacle = Tile->IsObstacle();
+		AUnit* occupyingUnit = Tile->GetOccupyingUnit();
+
+		// Check for empty tiles
+		if (status == ETileStatus::EMPTY && !isObstacle && !occupyingUnit)
+		{
+			emptyTiles++;
+		}
+		// Check for obstacle tiles
+		else if (isObstacle || owner == -2)
+		{
+			obstacleTiles++;
+		}
+		// Check for occupied tiles
+		else if (status == ETileStatus::OCCUPIED)
+		{
+			occupiedTiles++;
+		}
+	}
+
+	//// Output diagnostics
+	//GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow,
+	//	FString::Printf(TEXT("Grid Diagnosis: %d total, %d empty, %d obstacles, %d occupied, %d inconsistent"),
+	//		totalTiles, emptyTiles, obstacleTiles, occupiedTiles, inconsistentTiles));
+
+	//// Check connectivity
+	//bool isConnected = ValidateConnectivity();
+	//GEngine->AddOnScreenDebugMessage(-1, 10.f,
+	//	isConnected ? FColor::Green : FColor::Red,
+	//	FString::Printf(TEXT("Grid Connectivity: %s"), isConnected ? TEXT("CONNECTED") : TEXT("DISCONNECTED")));
 }
 
 // returns true if the tile is in the grid
 inline bool AGrid::IsValidPosition(const FVector2D Position) const
 {
 	return 0 <= Position.X && Position.X < Size && 0 <= Position.Y && Position.Y < Size;
-}
-
-FVector AGrid::GetWorldLocationFromGrid(int32 GridX, int32 GridY)
-{
-	return FVector();
 }
 
 // Called every frame

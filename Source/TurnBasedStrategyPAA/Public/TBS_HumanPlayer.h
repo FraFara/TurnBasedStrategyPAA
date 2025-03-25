@@ -120,16 +120,9 @@ public:
 	UFUNCTION()
 	void OnRightClick();
 
-	// Select Unit For Placement
-	void SelectBrawlerForPlacement();
-	void SelectSniperForPlacement();
-
 	// Spawns new unit on grid
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void PlaceUnit(int32 GridX, int32 GridY, EUnitType Type);
-
-	UFUNCTION(BlueprintCallable, Category = "Unit Placement")
-	void SetCurrentPlacementTile(ATile* Tile);
 
 	UFUNCTION(BlueprintCallable, Category = "Unit Placement")
 	ATile* GetCurrentPlacementTile();
@@ -147,10 +140,6 @@ public:
 	// Check if all units have completed their actions
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void CheckAllUnitsFinished();
-
-	// End the player's turn
-	UFUNCTION(BlueprintCallable, Category = "Gameplay")
-	void EndTurn();
 
 	// Methods for highlighting
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")

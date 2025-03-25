@@ -39,9 +39,9 @@ public:
     // Called when right-clicking (to cancel actions)
     void CancelAction();
 
-    // Notification methods for game events
-    UFUNCTION(BlueprintCallable, Category = "Game")
-    void OnGameOver(bool bPlayerWon);
+    //// Notification methods for game events
+    //UFUNCTION(BlueprintCallable, Category = "Game")
+    //void OnGameOver(bool bPlayerWon);
 
 protected:
     virtual void BeginPlay() override;

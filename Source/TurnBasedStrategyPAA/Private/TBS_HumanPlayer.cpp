@@ -23,8 +23,8 @@ ATBS_HumanPlayer::ATBS_HumanPlayer()
 	// Sets the camera as RootComponent
 	SetRootComponent(Camera);
 	// Camera Placement -> Top Down View
-	Camera->SetRelativeLocation(FVector(0, 0, 200));
-	Camera->SetRelativeRotation(FRotator(-90, 0, 0));
+	Camera->SetRelativeLocation(FVector(0, 0, 3000));
+	Camera->SetRelativeRotation(FRotator(-90, 0, 0)); // Straight top-down view
 	// default init values
 	PlayerNumber = 0;
 	UnitColor = EUnitColor::BLUE;
@@ -274,6 +274,12 @@ void ATBS_HumanPlayer::OnClick()
 				// Unit selection logic - ensure ownership check is correct
 				if (UnitOnTile->GetOwnerID() == PlayerNumber)
 				{
+					// Clear previous selection highlight if there was one
+					if (SelectedTile)
+					{
+						SelectedTile->ClearHighlight();
+					}
+
 					// Update selected unit
 					if (SelectedUnit == UnitOnTile)
 					{
@@ -436,24 +442,6 @@ void ATBS_HumanPlayer::OnRightClick()
 	}
 }
 
-void ATBS_HumanPlayer::SelectBrawlerForPlacement()
-{
-	UnitToPlace = EUnitType::BRAWLER;
-	CurrentAction = EPlayerAction::PLACEMENT;
-	IsMyTurn = true;
-
-	GameInstance->SetTurnMessage(TEXT("Place Brawler - Click on an empty tile"));
-}
-
-void ATBS_HumanPlayer::SelectSniperForPlacement()
-{
-	UnitToPlace = EUnitType::SNIPER;
-	CurrentAction = EPlayerAction::PLACEMENT;
-	IsMyTurn = true;
-
-	GameInstance->SetTurnMessage(TEXT("Place Sniper - Click on an empty tile"));
-}
-
 
 void ATBS_HumanPlayer::SkipUnitTurn()
 {
@@ -569,11 +557,6 @@ void ATBS_HumanPlayer::UpdateUI_Implementation()
 			GameInstance->SetTurnMessage(Message);
 		}
 	}
-}
-
-
-void ATBS_HumanPlayer::EndTurn()
-{
 }
 
 void ATBS_HumanPlayer::HighlightMovementTiles()
@@ -767,11 +750,6 @@ void ATBS_HumanPlayer::PlaceUnit(int32 GridX, int32 GridY, EUnitType Type)
 	}
 }
 
-void ATBS_HumanPlayer::SetCurrentPlacementTile(ATile* Tile)
-{
-	CurrentPlacementTile = Tile;
-}
-
 ATile* ATBS_HumanPlayer::GetCurrentPlacementTile()
 {
 	return CurrentPlacementTile;
@@ -781,22 +759,3 @@ void ATBS_HumanPlayer::ClearCurrentPlacementTile()
 {
 	CurrentPlacementTile = nullptr;
 }
-
-
-
-//void ATBS_HumanPlayer::ChangeCameraPosition()
-//{
-
-// Default top-down view
-//Camera->SetRelativeLocation(FVector(0, 0, 200));
-//Camera->SetRelativeRotation(FRotator(-90, 0, 0));
-
-// Isometric view from one corner
-//		Camera->SetRelativeLocation(FVector(-200, -200, 150));
-//		Camera->SetRelativeRotation(FRotator(-45, 45, 0));
-
-// Isometric view from opposite corner
-//		Camera->SetRelativeLocation(FVector(200, 200, 150));
-//		Camera->SetRelativeRotation(FRotator(-45, 225, 0));
-
-//}

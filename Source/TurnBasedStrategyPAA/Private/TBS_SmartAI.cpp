@@ -631,21 +631,6 @@ void ATBS_SmartAI::ResetActionState()
     CurrentAction = ESAIAction::NONE;
 }
 
-void ATBS_SmartAI::EndTurn()
-{
-    // End our turn via the GameMode 
-    ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-    if (GameMode)
-    {
-        GameMode->EndTurn();
-    }
-
-    // Reset turn-related states
-    bIsProcessingTurn = false;
-    CurrentAction = ESAIAction::NONE;
-    SelectedUnit = nullptr;
-}
-
 ATile* ATBS_SmartAI::SelectBestMovementDestination(AUnit* Unit)
 {
     if (!Unit || EnemyUnits.Num() == 0)

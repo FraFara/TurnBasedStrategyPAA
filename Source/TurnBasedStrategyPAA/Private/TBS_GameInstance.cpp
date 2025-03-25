@@ -61,15 +61,15 @@ void UTBS_GameInstance::AddMoveToHistory(int32 PlayerIndex, const FString& UnitT
     // Format the player identifier
     FString PlayerIdentifier = (PlayerIndex == 0) ? TEXT("HP") : TEXT("AI");
 
-    // Convert numerical coordinates to letter+number format
-    // X axis: A-Y (0-24 in grid)
-    // Y axis: 1-25 (0-24 in grid)
+    // Convert numerical coordinates to letter+number format -> Horizontal line will be identified by the y axys since the view is top-down
+    // Y axis: A-Y (0-24 in grid)
+    // X axis: 1-25 (0-24 in grid)
     auto ConvertToGridFormat = [](const FVector2D& Position) -> FString
         {
-            // Convert X to a letter (A-Y)
-            TCHAR Letter = 'A' + static_cast<int32>(Position.X);
-            // Convert Y to a number (1-25)
-            int32 Number = static_cast<int32>(Position.Y) + 1;
+            // Convert Y to a letter (A-Y)
+            TCHAR Letter = 'A' + static_cast<int32>(Position.Y);
+            // Convert X to a number (1-25)
+            int32 Number = static_cast<int32>(Position.X) + 1;
 
             return FString::Printf(TEXT("%c%d"), Letter, Number);
         };

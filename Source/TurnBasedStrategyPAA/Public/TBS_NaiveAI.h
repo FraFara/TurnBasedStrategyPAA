@@ -120,8 +120,4 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Gameplay")
 	void ResetActionState();
-
-	// EndTurn
-	UFUNCTION(BlueprintCallable, Category = "Gameplay")
-	void EndTurn();
 };

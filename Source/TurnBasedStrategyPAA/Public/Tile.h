@@ -67,9 +67,6 @@ public:
 	// Check if this tile is an obstacle
 	bool IsObstacle() const;
 
-	// Verify obstacle status and debug any issues
-	bool VerifyObstacleStatus() const;
-
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

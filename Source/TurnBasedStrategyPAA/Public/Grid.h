@@ -74,6 +74,8 @@ public:
 
 	bool ValidateConnectivity();
 
+	void DiagnoseGridState();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -87,10 +89,6 @@ protected:
 
 	// checking if is a valid field position
 	inline bool IsValidPosition(const FVector2D Position) const;
-
-	// Get spacial coordinates from grid coordinates
-	UFUNCTION(BlueprintCallable, Category = "Grid")
-	FVector GetWorldLocationFromGrid(int32 GridX, int32 GridY);
 
 //public:	
 //	// Called every frame

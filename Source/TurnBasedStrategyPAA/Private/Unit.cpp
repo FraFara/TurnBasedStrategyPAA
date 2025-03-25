@@ -190,19 +190,10 @@ TArray<ATile*> AUnit::GetMovementTiles()
     // Validate obstacles before calculating movement
     Grid->ValidateAllObstacles();
 
-    // Build a list of obstacle positions for quick checking
-    TSet<FVector2D> ObstaclePositions;
-    for (ATile* Tile : Grid->GetTileArray())
-    {
-        if (Tile && (Tile->GetOwner() == -2 || Tile->IsObstacle()))
-        {
-            ObstaclePositions.Add(Tile->GetGridPosition());
-        }
-    }
-
     // Algorithm BFS to find valid movement tiles
     TArray<ATile*> Queue;
     TMap<ATile*, int32> Distance;
+
     Queue.Add(CurrentTile);
     Distance.Add(CurrentTile, 0);
 
@@ -211,34 +202,36 @@ TArray<ATile*> AUnit::GetMovementTiles()
         ATile* Tile = Queue[0];
         Queue.RemoveAt(0);
 
-        // Skip null tiles or explicit obstacle tiles immediately
-        if (!Tile || Tile->IsObstacle() || Tile->GetOwner() == -2)
-        {
+        // Skip null tiles
+        if (!Tile)
             continue;
-        }
 
         FVector2D TilePos = Tile->GetGridPosition();
         int32 CurrentDistance = Distance[Tile];
 
         // If this isn't the current tile and it's a valid destination, add it to valid tiles
+        // Explicitly check that it's not an obstacle in multiple ways
         if (Tile != CurrentTile &&
             Tile->GetTileStatus() == ETileStatus::EMPTY &&
-            Tile->GetOwner() != -2 && // Explicit check for obstacle owner
+            !Tile->IsObstacle() &&
+            Tile->GetOwner() != -2 &&
             !Tile->GetOccupyingUnit())
         {
             ValidTiles.Add(Tile);
         }
 
+        // Only explore further if within movement range
         if (CurrentDistance < MovementRange)
         {
+            // Explicitly use only 4 cardinal directions for movement
             TArray<FVector2D> Directions = {
-                FVector2D(0, 1),
-                FVector2D(0, -1),
-                FVector2D(1, 0),
-                FVector2D(-1, 0)
+                FVector2D(0, 1),   // Up
+                FVector2D(0, -1),  // Down
+                FVector2D(1, 0),   // Right
+                FVector2D(-1, 0)   // Left
             };
 
-            for (FVector2D& Dir : Directions)
+            for (const FVector2D& Dir : Directions)
             {
                 FVector2D NewPos = TilePos + Dir;
 
@@ -252,43 +245,18 @@ TArray<ATile*> AUnit::GetMovementTiles()
                 if (!NextTile || Distance.Contains(NextTile))
                     continue;
 
-                // More checks for obstacles
-                if (NextTile->IsObstacle())
-                    continue;
-
-                if (NextTile->GetOwner() == -2)
-                    continue;
-
-                if (NextTile->GetTileStatus() == ETileStatus::OCCUPIED && !NextTile->GetOccupyingUnit())
+                // Skip obstacles - multiple checks for robustness
+                if (NextTile->IsObstacle() || NextTile->GetOwner() == -2)
                     continue;
 
                 // Skip occupied tiles
                 if (NextTile->GetTileStatus() != ETileStatus::EMPTY || NextTile->GetOccupyingUnit())
                     continue;
 
-                // If all checks passed, this is a valid tile to explore
+                // This is a valid tile to explore
                 Queue.Add(NextTile);
                 Distance.Add(NextTile, CurrentDistance + 1);
             }
-        }
-    }
-
-    // Final filtering - double check no obstacles are in the valid tiles
-    for (int32 i = ValidTiles.Num() - 1; i >= 0; i--)
-    {
-        ATile* Tile = ValidTiles[i];
-        if (!Tile || Tile->IsObstacle() || Tile->GetOwner() == -2 ||
-            (Tile->GetTileStatus() == ETileStatus::OCCUPIED && !Tile->GetOccupyingUnit()))
-        {
-            ValidTiles.RemoveAt(i);
-        }
-    }
-
-    for (int32 i = ValidTiles.Num() - 1; i >= 0; i--)
-    {
-        if (ObstaclePositions.Contains(ValidTiles[i]->GetGridPosition()))
-        {
-            ValidTiles.RemoveAt(i);
         }
     }
 

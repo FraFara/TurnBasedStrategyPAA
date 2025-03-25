@@ -538,21 +538,6 @@ void ATBS_NaiveAI::ResetActionState()
 	CurrentAction = EAIAction::NONE;
 }
 
-void ATBS_NaiveAI::EndTurn()
-{
-	// End our turn via the GameMode 
-	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-	if (GameMode)
-	{
-		GameMode->EndTurn();
-	}
-
-	// Reset turn-related states
-	bIsProcessingTurn = false;
-	CurrentAction = EAIAction::NONE;
-	SelectedUnit = nullptr;
-}
-
 void ATBS_NaiveAI::FinishTurn()
 {
 	// End our turn via the GameMode

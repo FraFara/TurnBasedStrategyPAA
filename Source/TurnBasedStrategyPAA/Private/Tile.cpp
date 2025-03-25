@@ -86,14 +86,12 @@ void ATile::SetAsObstacle()
     {
         ProcessEvent(Function, nullptr);
     }
-}
-
-// Add this helper method to explicitly verify if a tile is correctly set as an obstacle
-bool ATile::VerifyObstacleStatus() const
-{
-    bool isObstacle = (Status == ETileStatus::OCCUPIED && PlayerOwner == -2);
-
-    return isObstacle;
+    else
+    {
+        // Fallback if blueprint function doesn't exist
+        GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow,
+            TEXT("SetObstacleMaterial function not found in Blueprint"));
+    }
 }
 
 void ATile::SetHighlightForMovement()
@@ -185,9 +183,8 @@ void ATile::ClearHighlight()
 
 bool ATile::IsObstacle() const
 {
-    return (Status == ETileStatus::OCCUPIED && PlayerOwner == -2) ||
-        (PlayerOwner == -2) || // Even if status is wrong
-        (Status == ETileStatus::OCCUPIED && !OccupyingUnit); // Occupied with no unit = obstacle
+    // A tile is an obstacle if and only if its owner is -2
+    return (PlayerOwner == -2);
 }
 
 // Called when the game starts or when spawned

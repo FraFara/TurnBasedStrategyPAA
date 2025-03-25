@@ -853,8 +853,6 @@ bool ATBS_GameMode::PlaceUnit(EUnitType Type, int32 GridX, int32 GridY, int32 Pl
 
     // Switch to next player for placement
     CurrentPlayer = (CurrentPlayer + 1) % NumberOfPlayers;
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Next player for placement: %d"), CurrentPlayer));
 
     if (Players.IsValidIndex(CurrentPlayer))
     {
@@ -1017,7 +1015,7 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
 
         // Show end game message
         FString WinnerName = (PlayerIndex == 0) ? TEXT("Human Player") : TEXT("AI Player");
-        FString EndGameMessage = FString::Printf(TEXT("GAME OVER! %s has WON the game! (Score: Human %d - AI %d)"),
+        FString EndGameMessage = FString::Printf(TEXT("%s has WON! (Score: Human %d - AI %d). Press 'New Round' to start again"),
             *WinnerName, GameInstance->GetScoreHumanPlayer(), GameInstance->GetScoreAiPlayer());
 
         GameInstance->SetTurnMessage(EndGameMessage);
@@ -1168,7 +1166,13 @@ bool ATBS_GameMode::WouldBreakConnectivity(int32 GridX, int32 GridY)
     ETileStatus OriginalStatus = Tile->GetTileStatus();
     int32 OriginalOwner = Tile->GetOwner();
 
+    // Set as obstacle
     Tile->SetTileStatus(-2, ETileStatus::OCCUPIED);
+    // Explicitly mark as obstacle using function if available
+    if (UFunction* Function = Tile->FindFunction(TEXT("SetObstacleMaterial")))
+    {
+        Tile->ProcessEvent(Function, nullptr);
+    }
 
     // Check if the grid is still connected
     bool IsConnected = GameGrid->ValidateConnectivity();
@@ -1180,57 +1184,84 @@ bool ATBS_GameMode::WouldBreakConnectivity(int32 GridX, int32 GridY)
     return !IsConnected;
 }
 
+// Percentage-based obstacle spawning
+// Modified obstacle spawning function with improved enclosure prevention
 void ATBS_GameMode::SpawnObstaclesWithConnectivity()
 {
-    // Validate grid existence
     if (!GameGrid)
     {
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Error: GameGrid is null"));
         return;
     }
 
-    // Clear any existing obstacles first
+    // Reset all tiles to empty to ensure a clean start
     for (ATile* Tile : GameGrid->TileArray)
     {
-        if (Tile && (Tile->IsObstacle() || Tile->GetOwner() == -2))
+        if (Tile)
         {
+            // Clear any highlights
+            Tile->ClearHighlight();
+
+            // Reset all tiles to empty state
             Tile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
         }
     }
 
-    // Calculate target obstacles
-    int32 TotalCells = GridSize * GridSize;
-    int32 TargetObstacles = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalCells);
+    // Calculate target obstacles based on percentage
+    int32 TotalTileCount = GameGrid->Size * GameGrid->Size;
+    int32 TargetObstacles = FMath::RoundToInt((ObstaclePercentage / 100.0f) * TotalTileCount);
 
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-        FString::Printf(TEXT("Attempting to place %d obstacles (%.1f%%)"),
-            TargetObstacles, ObstaclePercentage));
+    // Cap at 70% maximum
+    int32 MaxObstacles = FMath::RoundToInt(0.7f * TotalTileCount);
+    TargetObstacles = FMath::Min(TargetObstacles, MaxObstacles);
 
-    // Create an array of all valid tile positions
-    TArray<FVector2D> ValidPositions;
-    for (int32 x = 1; x < GridSize - 1; x++)
+    // Track all obstacle positions explicitly
+    TArray<FVector2D> ObstaclePositions;
+
+    float StepSize = FMath::Sqrt(100.0f / ObstaclePercentage);  // Adjust spacing based on percentage
+    StepSize = FMath::Max(StepSize, 1.5f);                      // Ensure minimum spacing
+
+    TArray<FVector2D> PatternPositions;
+
+    // Create a grid pattern with spacing based on percentage
+    for (float x = 0.0f; x < GameGrid->Size - 1; x += StepSize)
     {
-        for (int32 y = 1; y < GridSize - 1; y++)
+        for (float y = 0.0f; y < GameGrid->Size - 1; y += StepSize)
         {
-            ValidPositions.Add(FVector2D(x, y));
+            // Add some randomness to avoid perfect grid patterns
+            float offsetX = FMath::FRandRange(-0.3f, 0.3f) * StepSize;
+            float offsetY = FMath::FRandRange(-0.3f, 0.3f) * StepSize;
+
+            int32 gridX = FMath::RoundToInt(x + offsetX);
+            int32 gridY = FMath::RoundToInt(y + offsetY);
+
+            // Ensure we're within grid bounds
+            if (gridX >= 0 && gridX < GameGrid->Size &&
+                gridY >= 0 && gridY < GameGrid->Size)
+            {
+                PatternPositions.Add(FVector2D(gridX, gridY));
+            }
         }
     }
 
-    // Shuffle for randomness
-    for (int32 i = ValidPositions.Num() - 1; i > 0; i--)
+    // Shuffle positions for more randomness
+    for (int32 i = PatternPositions.Num() - 1; i > 0; i--)
     {
         int32 SwapIndex = FMath::RandRange(0, i);
         if (i != SwapIndex)
         {
-            ValidPositions.Swap(i, SwapIndex);
+            PatternPositions.Swap(i, SwapIndex);
         }
     }
 
-    // First pass: Just place obstacles directly without connectivity checks
+    // Place obstacles from the pattern
     int32 PlacedObstacles = 0;
-    for (int32 i = 0; i < ValidPositions.Num() && PlacedObstacles < TargetObstacles; i++)
+
+    // Try the patterned positions
+    for (const FVector2D& Pos : PatternPositions)
     {
-        FVector2D Pos = ValidPositions[i];
+        if (PlacedObstacles >= TargetObstacles)
+            break;
 
         if (!GameGrid->TileMap.Contains(Pos))
             continue;
@@ -1238,72 +1269,234 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
         ATile* Tile = GameGrid->TileMap[Pos];
 
         // Skip invalid tiles
-        if (!Tile || Tile->GetTileStatus() != ETileStatus::EMPTY ||
-            Tile->GetOccupyingUnit() || Tile->IsObstacle())
+        if (!Tile || Tile->GetOccupyingUnit())
             continue;
 
-        // Place obstacle directly
-        Tile->SetAsObstacle();
-        PlacedObstacles++;
-    }
+        // Don't completely block any adjacent empty tile
+        bool WouldBlockAdjacent = false;
+        TArray<FVector2D> Directions = {
+            FVector2D(0, 1), FVector2D(0, -1), FVector2D(1, 0), FVector2D(-1, 0)
+        };
 
-    // Now check connectivity and fix if needed
-    bool IsConnected = GameGrid->ValidateConnectivity();
-    if (!IsConnected)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-            TEXT("Fixing connectivity by removing obstacles..."));
-
-        // Store all obstacles in an array
-        TArray<ATile*> Obstacles;
-        for (ATile* Tile : GameGrid->TileArray)
+        for (const FVector2D& Dir : Directions)
         {
-            if (Tile && Tile->IsObstacle())
+            FVector2D AdjPos = Pos + Dir;
+
+            if (!GameGrid->TileMap.Contains(AdjPos))
+                continue;
+
+            ATile* AdjTile = GameGrid->TileMap[AdjPos];
+            if (!AdjTile || AdjTile->GetOccupyingUnit())
+                continue;
+
+            // Check if all other sides of this adjacent tile are blocked
+            int32 BlockedSides = 0;
+            for (const FVector2D& CheckDir : Directions)
             {
-                Obstacles.Add(Tile);
+                if (CheckDir == Dir * -1)  // Skip the direction we came from
+                    continue;
+
+                FVector2D CheckPos = AdjPos + CheckDir;
+
+                if (!GameGrid->TileMap.Contains(CheckPos))
+                {
+                    BlockedSides++;  // Edge of grid is a block
+                    continue;
+                }
+
+                ATile* CheckTile = GameGrid->TileMap[CheckPos];
+                if (!CheckTile || ObstaclePositions.Contains(CheckPos))
+                {
+                    BlockedSides++;
+                }
+            }
+
+            // If all sides would be blocked, this would isolate the tile
+            if (BlockedSides >= 2)  // 2+ other sides blocked (plus our potential obstacle = 3+)
+            {
+                WouldBlockAdjacent = true;
+                break;
             }
         }
 
-        // Shuffle so we remove random obstacles
-        for (int32 i = Obstacles.Num() - 1; i > 0; i--)
+        if (!WouldBlockAdjacent)
+        {
+            // Track this position as an obstacle
+            ObstaclePositions.Add(Pos);
+            PlacedObstacles++;
+        }
+    }
+
+    // If we didn't reach the target, try randomized positions
+    if (PlacedObstacles < TargetObstacles)
+    {
+        // Create completely random positions
+        TArray<FVector2D> RandomPositions;
+        for (int32 x = 0; x < GameGrid->Size; x++)
+        {
+            for (int32 y = 0; y < GameGrid->Size; y++)
+            {
+                // Skip positions already used
+                if (ObstaclePositions.Contains(FVector2D(x, y)))
+                    continue;
+
+                RandomPositions.Add(FVector2D(x, y));
+            }
+        }
+
+        // Shuffle positions
+        for (int32 i = RandomPositions.Num() - 1; i > 0; i--)
         {
             int32 SwapIndex = FMath::RandRange(0, i);
             if (i != SwapIndex)
             {
-                Obstacles.Swap(i, SwapIndex);
+                RandomPositions.Swap(i, SwapIndex);
             }
         }
 
-        // Remove obstacles until connectivity is restored
-        for (ATile* Obstacle : Obstacles)
+        // Try to place more obstacles
+        for (const FVector2D& Pos : RandomPositions)
         {
-            if (!Obstacle)
+            if (PlacedObstacles >= TargetObstacles)
+                break;
+
+            if (!GameGrid->TileMap.Contains(Pos))
                 continue;
 
-            // Remove obstacle
-            Obstacle->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+            ATile* Tile = GameGrid->TileMap[Pos];
 
-            // Check if connectivity is restored
-            IsConnected = GameGrid->ValidateConnectivity();
+            // Skip invalid tiles
+            if (!Tile || Tile->GetOccupyingUnit())
+                continue;
+
+            // Set as temporary obstacle for connectivity check
+            // First add to obstacle positions
+            ObstaclePositions.Add(Pos);
+
+            // Simple connectivity check
+            bool IsConnected = true;
+
+            // Clear all tiles
+            for (ATile* ClearTile : GameGrid->TileArray)
+            {
+                if (ClearTile)
+                {
+                    ClearTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+                }
+            }
+
+            // Set obstacles for testing
+            for (const FVector2D& ObsPos : ObstaclePositions)
+            {
+                if (GameGrid->TileMap.Contains(ObsPos))
+                {
+                    ATile* ObsTile = GameGrid->TileMap[ObsPos];
+                    if (ObsTile)
+                    {
+                        ObsTile->SetTileStatus(-2, ETileStatus::OCCUPIED);
+                    }
+                }
+            }
+
+            // Count total empty tiles and find first empty tile
+            int32 TotalEmptyTiles = 0;
+            ATile* StartTile = nullptr;
+
+            // Find first empty tile & count all empty tiles
+            for (ATile* CountTile : GameGrid->TileArray)
+            {
+                if (CountTile && CountTile->GetTileStatus() == ETileStatus::EMPTY)
+                {
+                    TotalEmptyTiles++;
+                    if (!StartTile)
+                    {
+                        StartTile = CountTile;
+                    }
+                }
+            }
+
+            if (StartTile)
+            {
+                // BFS to count reachable tiles
+                TArray<ATile*> Queue;
+                TSet<ATile*> Visited;
+
+                Queue.Add(StartTile);
+                Visited.Add(StartTile);
+
+                while (Queue.Num() > 0)
+                {
+                    ATile* CurrentTile = Queue[0];
+                    Queue.RemoveAt(0);
+
+                    FVector2D CurPos = CurrentTile->GetGridPosition();
+
+                    // Check 4 cardinal directions
+                    TArray<FVector2D> Directions = {FVector2D(0, 1), FVector2D(0, -1), FVector2D(1, 0), FVector2D(-1, 0)};
+
+                    for (const FVector2D& Dir : Directions)
+                    {
+                        FVector2D NewPos = CurPos + Dir;
+
+                        if (!GameGrid->TileMap.Contains(NewPos))
+                            continue;
+
+                        ATile* NextTile = GameGrid->TileMap[NewPos];
+
+                        if (!NextTile || Visited.Contains(NextTile) ||
+                            NextTile->GetTileStatus() == ETileStatus::OCCUPIED)
+                            continue;
+
+                        Visited.Add(NextTile);
+                        Queue.Add(NextTile);
+                    }
+                }
+
+                // If not all empty tiles are reached, there's a connectivity problem
+                if (Visited.Num() < TotalEmptyTiles)
+                {
+                    IsConnected = false;
+                }
+            }
+
+            // Revert all tiles to empty again
+            for (ATile* ClearTile : GameGrid->TileArray)
+            {
+                if (ClearTile)
+                {
+                    ClearTile->SetTileStatus(AGrid::NOT_ASSIGNED, ETileStatus::EMPTY);
+                }
+            }
+
+            // Keep obstacle if connectivity is maintained
             if (IsConnected)
-                break;
+            {
+                PlacedObstacles++;
+            }
+            else
+            {
+                // Remove obstacle from the list
+                ObstaclePositions.RemoveAt(ObstaclePositions.Num() - 1);
+            }
         }
     }
 
-    // Final count
-    int32 FinalObstacles = 0;
-    for (ATile* Tile : GameGrid->TileArray)
+    // Final obstacle positions, set them all at once
+    for (const FVector2D& ObsPos : ObstaclePositions)
     {
-        if (Tile && Tile->IsObstacle())
+        if (GameGrid->TileMap.Contains(ObsPos))
         {
-            FinalObstacles++;
+            ATile* ObsTile = GameGrid->TileMap[ObsPos];
+            if (ObsTile)
+            {
+                // Set as obstacle
+                ObsTile->SetAsObstacle();
+            }
         }
     }
 
-    float FinalPercentage = (FinalObstacles * 100.0f) / TotalCells;
-
-    // Log final stats
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-        FString::Printf(TEXT("Final obstacles: %d/%d (%.1f%%)"),
-            FinalObstacles, TargetObstacles, FinalPercentage));
+    //// Final report
+    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+    //    FString::Printf(TEXT("Successfully placed %d obstacles (%.1f%%)"),
+    //        PlacedObstacles, (float)PlacedObstacles / TotalTileCount * 100.0f));
 }
