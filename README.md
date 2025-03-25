@@ -1,5 +1,5 @@
 Informazioni Base: Gioco strategico
-● 1vs1 (Human Player versus AI).
+1vs1 (Human Player versus AI).
 Mappa di gioco
 ● Dimensione Mappa: Griglia di 25 celle x 25 celle -> dimensioni editabili dalla classe blueprint BP_TBSGameMode
 ● Griglia di celle quadrate vista dall'alto
@@ -26,68 +26,43 @@ Fasi Partita:
 6) Quando una delle due squadre rimane senza unità si procede al game over -> premendo il bottone reset si inizierà un nuovo round mantenendo il punteggio (se premuto prima della fine del round il punteggio rimarrà invariato e ricomincerà il round.
 
 Turno di Gioco
-Selezionata un unità si può effettuare una delle seguenti opzioni:
-a. Eseguire prima un movimento e poi attaccare (se il range di attacco lo
-consente)
-b. Attaccare senza effettuare il movimento.
-c. Eseguire un movimento senza attaccare.
-Nel caso che una unità non possa effettuare un movimento, può solo effettuare un
-attacco. In generale, non dovrebbe essere mai possibile che l’unità non possa
-eseguire almeno un’azione.
-3. Il player in turno seleziona la sua seconda unità ed esegue la medesima azione
-descritta nel punto 2.
-4. il Turno termina al concludersi delle azioni disponibili di tutte le proprie unità.
-5. L’avversario inizia il proprio turno come da punto 1 del Turno di Gioco.
+- Selezionata un unità si può effettuare una delle seguenti opzioni:
+1) Muoversi e attaccare,
+2) Attaccare e muoversi,
+3) Attaccare e skippare il movimento,
+4) Muoversi e skippare l'attacco
+- Il player in turno può selezionare l'unità che vuole dividento a preferenza le azioni e l'ordine delle proprie unità.
+- Il Turno termina al concludersi delle azioni disponibili di tutte le proprie unità. (IMPORTANTE: Premere "Skip Unit's Actions" se rimangono azioni che non si vogliono o non si possono compiere)
+- L’avversario inizia il proprio turno come da punto 1 del Turno di Gioco.
 Fine Partita
 La partita finisce quando si verifica una delle seguenti condizioni:
-● Tutte le unità avversarie esauriscono i Punti Vita ➜ Vittoria del Player
-● Tutte le proprie unità esauriscono i Punti Vita ➜ Sconfitta del Player
+1) Tutte le unità avversarie esauriscono i Punti Vita ➜ Vittoria del Player
+2) Tutte le proprie unità esauriscono i Punti Vita ➜ Sconfitta del Player
 Osservazioni e ulteriori specifiche
-● Nella generazione degli ostacoli, tutte le celle devono essere comunque raggiungibili
-(no isole/sezioni di mappa irraggiungibili).
-● Quando si clicca sulla propria unità per selezionarla, deve essere mostrato sulla
-griglia il range possibile di movimento. Con un ulteriore click dovrà essere nascosto.
-○ Nel caso della AI, questa funzionalità è automatica: quando effettua la propria
-mossa, si evidenzia sulla griglia il movimento e/o il range di attacco.
-● Nel caso venga effettuato un movimento su un'unità, non deve essere possibile
-muoverla nuovamente nello stesso turno.
-● Dovrà essere possibile visualizzare lo stato delle unità per capire quando la partita
-termina (stampate nel log o in un widget, a lato della griglia oppure sulle unità stesse)
-● Dovrà essere mostrato il turno di gioco (Player oppure AI)
-● Il lancio della moneta può essere realistico (moneta che viene lanciata in aria e che
-si ferma su di un piano) oppure simulata (ad esempio, viene premuto un tasto e
-compare la scritta di chi inizia il turno)
-● Le unità che esauriscono i Punti Vita dovranno essere rimosse dalla griglia
-● L’identificazione delle posizioni di ciascuna cella della griglia è formata da una lettera
-e da un numero (lettere A...Y dell’alfabeto inglese sull’asse orizzontale e numeri
-1..25 sull’asse verticale). La cella più in basso a sinistra guardando la griglia è la A1
-● Il movimento delle unità nella griglia dovrà avvenire seguendo il percorso minimo tra
-il punto di partenza e quello di arrivo sulla griglia (no teletrasporto, no linea retta tra i
-due punti)
-● Le azioni dell’unità durante il turno di gioco sono mutualmente esclusive.
-● Durante il turno, una volta confermata l’azione di una unità, questa non può più
-essere cambiata per quel turno.
-● Una generica mossa da inserire nello storico delle mosse effettuate è composta da:
-○ Identificativo del Player (HP per il player umano e AI per il player sfidante)
-○ Identificativo dell'unità di gioco (S per lo Sniper e B per il Brawler)
-○ Nel caso di una azione di movimento:
-■ Identificativo della cella di origine e della cella di destinazione
-○ Nel caso di una azione di attacco:
-■ Identificativo della cella dell’avversario attaccato
-■ Danno apportato all’avversario
-○ Esempio: Supponiamo che il giocatore muova il proprio Sniper e poi decida di
-attaccare con lo stesso. Nello storico delle mosse dovranno apparire le
-seguenti righe:
-■ HP: S B4 -> D6
-■ HP: S G8 7
-○ Nel caso del solo movimento o solo attacco, dovrà comparire solo la entry
-corrispondente.
-● Nel caso dell’implementazione dell’algoritmo A*, l’IA si deve muovere verso una unità
-nemica (sempre nel range di movimento).
-● Specifiche Danno da Contrattacco
-○ Nel caso in cui lo Sniper effettui una mossa di attacco e:
-■ L'unità attaccata sia uno Sniper oppure
-■ L’unità attaccata sia un Brawler e si trovi a distanza 1 dallo stesso
-○ …lo Sniper riceverà un danno da contrattacco (random in un range) che
+- Nella generazione degli ostacoli, tutte le celle sono comunque raggiungibili.
+- Quando si seleziona la propria unità basterà premere sul bottone "Move" per evidenziare le caselle raggiungibili con il movimento, "Attack" per evidenziare le caselle attaccabili (ovvero in range e occupate da un unità nemica).
+- Ogni unità potrà muoversi ed attaccare una sola volta a turno
+- Sull'HUD sarà possibile visualizzare le caratteristiche di ogni unità su cui si clicca e le informazioni generiche della partita (Turni, punteggio, round giocati, storico mosse)
+- Il giocatore che inizierà il turno verrà stabilito randomicamente all'inizio del gioco
+- Ogni unità eliminata viene rimossa dalla griglia
+- L’identificazione delle posizioni di ciascuna cella della griglia è formata da una lettera e da un numero (lettere A...Y dell’alfabeto inglese sull’asse orizzontale e numeri 1..25 sull’asse verticale). La cella più in basso a sinistra guardando la griglia è la A1
+- Il movimento all'interno della griglia avviene attraverso il percorso più breve (composto solo da movimenti orizzontali e verticali, tenendo conto degli ostacoli)
+- Le azioni dell’unità durante il turno di gioco sono mutualmente esclusive.
+- Durante il turno, una volta confermata l’azione di una unità, questa non può più essere cambiata per quel turno.
+- Una generica mossa da inserire nello storico delle mosse effettuate è composta da:
+1) Identificativo del Player (HP per il player umano e AI per il player sfidante)
+2) Identificativo dell'unità di gioco (S per lo Sniper e B per il Brawler)
+3) Nel caso di una azione di movimento:
+- Identificativo della cella di origine e della cella di destinazione
+4) Nel caso di una azione di attacco:
+- Identificativo della cella dell’avversario attaccato
+- Danno apportato all’avversario
+5) Nel caso del solo movimento o solo attacco, dovrà comparire solo la entry corrispondente.
+Implementazioni extra:
+- IA intelligente, prioritizza determinati bersagli, movimenti e mosse
+- Contrattacco su Sniper;
+Nel caso in cui lo Sniper effettui una mossa di attacco e:
+- L'unità attaccata sia uno Sniper oppure
+- L’unità attaccata sia un Brawler e si trovi a distanza 1 dallo stesso ->
+- …lo Sniper riceverà un danno da contrattacco (random in un range da 1 a 3) che
 verrà sottratto ai propri punti vita.
-○ Range danno da contrattacco: min 1 max 3
