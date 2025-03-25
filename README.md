@@ -58,7 +58,7 @@ Osservazioni e ulteriori specifiche
 - Identificativo della cella dell’avversario attaccato
 - Danno apportato all’avversario
 5) Nel caso del solo movimento o solo attacco, dovrà comparire solo la entry corrispondente.
-Implementazioni extra:
+  Implementazioni extra:
 - IA intelligente, prioritizza determinati bersagli, movimenti e mosse
 - Contrattacco su Sniper;
 Nel caso in cui lo Sniper effettui una mossa di attacco e:
