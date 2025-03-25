@@ -77,7 +77,6 @@ void ATBS_NaiveAI::OnTurn_Implementation()
 		return;
 	}
 
-	// Only here it's the AI's turn
 	bIsProcessingTurn = true;
 
 	GameInstance->SetTurnMessage(TEXT("AI (Random) Turn"));
@@ -226,14 +225,6 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 
 			if (Success)
 			{
-				// Record move in game instance
-				FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
-				if (GameInstance)
-				{
-					GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place",
-						FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
-				}
-
 				break;
 			}
 		}
@@ -244,7 +235,6 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		}
 	}
 
-	// If we still failed after all attempts, we need to handle this gracefully
 	if (!Success)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
@@ -280,7 +270,7 @@ void ATBS_NaiveAI::ProcessPlacementAction()
 		}
 	}
 
-	// Even if we couldn't place a unit, we need to ensure the game continues
+	// Even if placing unit wasn't possible, game continues
 	if (!Success)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red,
@@ -474,10 +464,7 @@ bool ATBS_NaiveAI::TryMoveUnit(AUnit* Unit)
 
 	if (Success)
 	{
-		// Record move
-		GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
-
-		// Notify using game mode
+		// Record move through game mode
 		ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 		if (GameMode)
 		{
@@ -516,20 +503,16 @@ bool ATBS_NaiveAI::TryAttackWithUnit(AUnit* Unit)
 	// Attack the unit
 	int32 Damage = Unit->Attack(TargetUnit);
 
-	// Record attack
-	if (GameInstance)
+	// Record attack through the game mode
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode)
 	{
-		GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
+		GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
 	}
 
-	// Notify using game mode
-	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
-
-	GameMode->RecordMove(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
-
 	return true;
-
 }
+
 
 void ATBS_NaiveAI::SkipUnitTurn()
 {

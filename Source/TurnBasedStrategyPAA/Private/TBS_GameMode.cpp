@@ -421,82 +421,85 @@ void ATBS_GameMode::InitializeGame()
         }
     }
 
-    // Find the human player
-    APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-    if (!PlayerController)
-    {
-        return;
-    }
-
-    ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
-    if (!HumanPlayer)
-    {
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.Owner = PlayerController;
-        HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
-
-        if (HumanPlayer)
+    // Use a timer to delay obstacle spawning and subsequent game initialization
+    FTimerHandle ObstacleSpawnTimerHandle;
+    GetWorldTimerManager().SetTimer(ObstacleSpawnTimerHandle, [this]()
         {
-            PlayerController->Possess(HumanPlayer);
-        }
-        else
-        {
-            return;
-        }
-    }
+            // Spawn obstacles
+            SpawnObstaclesWithConnectivity();
 
-    // Ensure Players array is properly populated
-    Players.Empty();
-    Players.Add(HumanPlayer);
+            // Find the human player
+            APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+            if (!PlayerController)
+            {
+                return;
+            }
 
-    // Spawn the selected AI player
-    AActor* AI = nullptr;
-    if (bUseSmartAI)
-    {
-        if (SmartAIClass)
-        {
-            AI = GetWorld()->SpawnActor<AActor>(SmartAIClass, FVector(), FRotator());
-        }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("SmartAIClass not set"));
-        }
-    }
-    else
-    {
-        if (NaiveAIClass)
-        {
-            AI = GetWorld()->SpawnActor<AActor>(NaiveAIClass, FVector(), FRotator());
-        }
-        else
-        {
-            GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("NaiveAIClass not set"));
-        }
-    }
+            ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerController->GetPawn());
+            if (!HumanPlayer)
+            {
+                FActorSpawnParameters SpawnParams;
+                SpawnParams.Owner = PlayerController;
+                HumanPlayer = GetWorld()->SpawnActor<ATBS_HumanPlayer>(ATBS_HumanPlayer::StaticClass(), SpawnParams);
+                if (HumanPlayer)
+                {
+                    PlayerController->Possess(HumanPlayer);
+                }
+                else
+                {
+                    return;
+                }
+            }
 
-    if (AI)
-    {
-        Players.Add(AI);
-    }
-    else
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn AI Player"));
-    }
+            // Ensure Players array is properly populated
+            Players.Empty();
+            Players.Add(HumanPlayer);
 
-    // Set initial values for units per player
-    UnitsRemaining.SetNum(NumberOfPlayers);
-    for (int32 i = 0; i < NumberOfPlayers; i++)
-    {
-        UnitsRemaining[i] = UnitsPerPlayer;
-    }
+            // Spawn the selected AI player
+            AActor* AI = nullptr;
+            if (bUseSmartAI)
+            {
+                if (SmartAIClass)
+                {
+                    AI = GetWorld()->SpawnActor<AActor>(SmartAIClass, FVector(), FRotator());
+                }
+                else
+                {
+                    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("SmartAIClass not set"));
+                }
+            }
+            else
+            {
+                if (NaiveAIClass)
+                {
+                    AI = GetWorld()->SpawnActor<AActor>(NaiveAIClass, FVector(), FRotator());
+                }
+                else
+                {
+                    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("NaiveAIClass not set"));
+                }
+            }
 
-    // Place obstacles
-    SpawnObstaclesWithConnectivity();
+            if (AI)
+            {
+                Players.Add(AI);
+            }
+            else
+            {
+                GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Failed to spawn AI Player"));
+            }
 
-    // Start the game with a coin toss
-    int32 StartingPlayer = SimulateCoinToss();
+            // Set initial values for units per player
+            UnitsRemaining.SetNum(NumberOfPlayers);
+            for (int32 i = 0; i < NumberOfPlayers; i++)
+            {
+                UnitsRemaining[i] = UnitsPerPlayer;
+            }
 
-    StartPlacementPhase(StartingPlayer);
+            // Start the game with a coin toss
+            int32 StartingPlayer = SimulateCoinToss();
+            StartPlacementPhase(StartingPlayer);
+        }, 0.1f, false); // Short delay to allow obstacle spawning to complete
 }
 
 // SimulateCoinToss to show the result
@@ -523,7 +526,7 @@ int32 ATBS_GameMode::SimulateCoinToss()
 
 void ATBS_GameMode::ShowCoinTossResult()
 {
-    // First, remove any existing coin toss widget to prevent overlaps
+    // Remove any existing coin toss widget to prevent overlaps
     if (CoinTossWidget && CoinTossWidget->IsInViewport())
     {
         CoinTossWidget->RemoveFromParent();
@@ -539,9 +542,6 @@ void ATBS_GameMode::ShowCoinTossResult()
         return;
 
     FString CoinTossMessage = GameInstance->GetTurnMessage();
-
-    // Display in debug log
-    //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, CoinTossMessage);
 
     // Create widget to show the result
     CoinTossWidget = CreateWidget<UUserWidget>(GetWorld()->GetFirstPlayerController(), CoinTossWidgetClass);
@@ -642,7 +642,7 @@ void ATBS_GameMode::StartGameplayPhase()
     // Reset any placement-related flags
     UnitsPlaced = NumberOfPlayers * UnitsPerPlayer;
 
-    // IMPORTANT: Reset all placement flags to avoid any confusion
+    // Reset all placement flags to avoid confusion
     for (int32 i = 0; i < BrawlerPlaced.Num(); i++)
     {
         BrawlerPlaced[i] = true;
@@ -659,7 +659,7 @@ void ATBS_GameMode::StartGameplayPhase()
         UnitSelectionWidget = nullptr;
     }
 
-    // THIS IS IMPORTANT: Reset player actions state
+    // Reset player actions state
     for (AActor* PlayerActor : Players)
     {
         if (ATBS_HumanPlayer* HumanPlayer = Cast<ATBS_HumanPlayer>(PlayerActor))
@@ -717,31 +717,6 @@ void ATBS_GameMode::StartGameplayPhase()
             }
         }, 0.5f, false);
 }
-
-//
-//        // Reset all units for new turn
-//        TArray<AActor*> AllUnits;
-//        UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), AllUnits);
-//
-//        for (AActor* Actor : AllUnits)
-//        {
-//            AUnit* Unit = Cast<AUnit>(Actor);
-//
-//            Unit->ResetTurn();
-//
-//        }
-//
-//        // Notify the player it's their turn
-//        AActor* PlayerActor = Players[CurrentPlayer];
-//
-//        // Get the interface pointer
-//        ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
-//
-//        // Call the OnTurn function
-//        PlayerInterface->OnTurn();
-//    }
-//}
-
 void ATBS_GameMode::EndTurn()
 {
     // Let the current player know their turn is ending
@@ -987,7 +962,6 @@ AActor* ATBS_GameMode::GetCurrentPlayer()
 
 void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
 {
-    // Make sure we aren't calling this multiple times
     if (CurrentPhase == EGamePhase::ROUND_END)
     {
         return;
@@ -1256,7 +1230,7 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     // Determine how many obstacles to place without connectivity checks
     int32 DirectPlacementTarget = TargetObstacles;
 
-    // If we're trying to place a very high percentage (>60%), 
+    // If high percentage (>60%), 
     // reserve some for connectivity-safe placement
     if (ObstaclePercentage > 60.0f)
     {
@@ -1305,8 +1279,6 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
         }
     }
 
-    // If we didn't reach our target and were conservative for connectivity,
-    // try to add more obstacles with connectivity checks
     if (PlacedObstacles < TargetObstacles && DirectPlacementTarget < TargetObstacles)
     {
         // Rebuild available tiles array

@@ -119,7 +119,7 @@ void ATBS_HumanPlayer::OnPlacement_Implementation()
 	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode && GameMode->CurrentPlayer != PlayerNumber)
 	{
-		// It's not actually our turn - don't do anything
+		// It's not player turn - don't do anything
 		IsMyTurn = false;
 		return;
 	}
@@ -312,10 +312,11 @@ void ATBS_HumanPlayer::OnClick()
 
 					if (SelectedUnit->MoveToTile(MatchedTile))
 					{
-						// Existing move history and UI update logic
-						if (GameInstance)
+						// Record the move through the GameMode
+						ATBS_GameMode* GameModeRef = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+						if (GameModeRef)
 						{
-							GameInstance->AddMoveToHistory(PlayerNumber,
+							GameModeRef->RecordMove(PlayerNumber,
 								SelectedUnit->GetUnitName(),
 								TEXT("Move"), FromPos, ToPos, 0);
 						}
@@ -347,23 +348,23 @@ void ATBS_HumanPlayer::OnClick()
 
 				int32 Damage = SelectedUnit->Attack(UnitOnTile);
 
-				if (Damage > 0 && GameInstance)
+				if (Damage > 0)
 				{
-					// Record attack in history
-					GameInstance->AddMoveToHistory(PlayerNumber,
-						SelectedUnit->GetUnitName(),
-						TEXT("Attack"), FromPos, TargetPos, Damage);
-
-					if (GameMode)
+					// Record attack only through game mode
+					ATBS_GameMode* GameModeRef = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+					if (GameModeRef)
 					{
-						GameMode->RecordMove(PlayerNumber,
+						GameModeRef->RecordMove(PlayerNumber,
 							SelectedUnit->GetUnitName(),
 							TEXT("Attack"), FromPos, TargetPos, Damage);
 					}
 
-					GameInstance->SetTurnMessage(
-						FString::Printf(TEXT("%s dealt %d damage to %s"),
-							*SelectedUnit->GetUnitName(), Damage, *UnitOnTile->GetUnitName()));
+					if (GameInstance)
+					{
+						GameInstance->SetTurnMessage(
+							FString::Printf(TEXT("%s dealt %d damage to %s"),
+								*SelectedUnit->GetUnitName(), Damage, *UnitOnTile->GetUnitName()));
+					}
 				}
 
 				ClearHighlightedTiles();
@@ -591,6 +592,32 @@ void ATBS_HumanPlayer::HighlightAttackTiles()
 
 	// Get and highlight attack tiles
 	HighlightedAttackTiles = SelectedUnit->GetAttackTiles();
+
+	// Check if there are no attackable tiles
+	if (HighlightedAttackTiles.Num() == 0)
+	{
+		// Update the turn message to inform the player
+		if (GameInstance)
+		{
+			FString CurrentMessage = GameInstance->GetTurnMessage();
+			GameInstance->SetTurnMessage(CurrentMessage + TEXT(" - No units within attack range"));
+
+			// Set a timer to revert the message after a few seconds
+			FTimerHandle MessageTimerHandle;
+			GetWorldTimerManager().SetTimer(MessageTimerHandle, [this]()
+				{
+					if (GameInstance)
+					{
+						// Reset to basic turn message
+						GameInstance->SetTurnMessage(TEXT("Your Turn - Select a unit"));
+					}
+				}, 3.0f, false);
+		}
+
+		// Don't set attack mode if there are no targets
+		CurrentAction = EPlayerAction::NONE;
+		return;
+	}
 
 	// Apply the highlight material to each tile
 	for (ATile* Tile : HighlightedAttackTiles)

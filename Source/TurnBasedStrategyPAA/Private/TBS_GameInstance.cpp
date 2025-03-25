@@ -61,19 +61,32 @@ void UTBS_GameInstance::AddMoveToHistory(int32 PlayerIndex, const FString& UnitT
     // Format the player identifier
     FString PlayerIdentifier = (PlayerIndex == 0) ? TEXT("HP") : TEXT("AI");
 
+    // Convert numerical coordinates to letter+number format
+    // X axis: A-Y (0-24 in grid)
+    // Y axis: 1-25 (0-24 in grid)
+    auto ConvertToGridFormat = [](const FVector2D& Position) -> FString
+        {
+            // Convert X to a letter (A-Y)
+            TCHAR Letter = 'A' + static_cast<int32>(Position.X);
+            // Convert Y to a number (1-25)
+            int32 Number = static_cast<int32>(Position.Y) + 1;
+
+            return FString::Printf(TEXT("%c%d"), Letter, Number);
+        };
+
     // Format the move entry based on action type
     FString MoveEntry;
     if (ActionType == TEXT("Move"))
     {
         // Format: HP: S B4 -> D6
-        MoveEntry = FString::Printf(TEXT("%s: %s %d,%d -> %d,%d"), *PlayerIdentifier, *UnitType.Left(1), //First letter of the unit
-            static_cast<int32>(FromPosition.X), static_cast<int32>(FromPosition.Y), static_cast<int32>(ToPosition.X), static_cast<int32>(ToPosition.Y));
+        MoveEntry = FString::Printf(TEXT("%s: %s %s -> %s"), *PlayerIdentifier, *UnitType.Left(1), //First letter of the unit
+            *ConvertToGridFormat(FromPosition), *ConvertToGridFormat(ToPosition));
     }
     else if (ActionType == TEXT("Attack"))
     {
         // Format: HP: S G8 7
-        MoveEntry = FString::Printf(TEXT("%s: %s %d,%d %d"), *PlayerIdentifier, *UnitType.Left(1), // First letter of unit type
-            static_cast<int32>(ToPosition.X), static_cast<int32>(ToPosition.Y), Damage);
+        MoveEntry = FString::Printf(TEXT("%s: %s %s %d"), *PlayerIdentifier, *UnitType.Left(1), // First letter of unit type
+            *ConvertToGridFormat(ToPosition), Damage);
     }
     else if (ActionType == TEXT("Skip"))
     {
@@ -83,8 +96,8 @@ void UTBS_GameInstance::AddMoveToHistory(int32 PlayerIndex, const FString& UnitT
     else if (ActionType == TEXT("Place"))
     {
         // Format: HP: S Place at D6
-        MoveEntry = FString::Printf(TEXT("%s: %s Place at %d,%d"), *PlayerIdentifier, *UnitType.Left(1), // First letter of unit type
-            static_cast<int32>(ToPosition.X), static_cast<int32>(ToPosition.Y));
+        MoveEntry = FString::Printf(TEXT("%s: %s Place at %s"), *PlayerIdentifier, *UnitType.Left(1), // First letter of unit type
+            *ConvertToGridFormat(ToPosition));
     }
 
     // Add to history

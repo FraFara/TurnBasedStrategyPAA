@@ -250,14 +250,6 @@ void ATBS_SmartAI::ProcessPlacementAction()
 
             if (Success)
             {
-                // Record move in game instance
-                FString UnitTypeString = (TypeToPlace == EUnitType::BRAWLER) ? "Brawler" : "Sniper";
-                if (GameInstance)
-                {
-                    GameInstance->AddMoveToHistory(PlayerNumber, UnitTypeString, "Place",
-                        FVector2D::ZeroVector, FVector2D(GridX, GridY), 0);
-                }
-
                 break;
             }
             else
@@ -444,7 +436,7 @@ void ATBS_SmartAI::ProcessUnitAction(AUnit* Unit)
     if (!Unit || Unit->IsDead())
         return;
 
-    // First, check if enemies are in attack range without moving
+    // Ccheck if enemies are in attack range without moving
     bool HasAttacked = false;
     if (!Unit->HasAttacked())
     {
@@ -490,7 +482,6 @@ bool ATBS_SmartAI::TryMoveUnit(AUnit* Unit)
     if (MovementTiles.Num() == 0)
         return false;
 
-    // Use strategic thinking to select the best destination
     ATile* TargetTile = SelectBestMovementDestination(Unit);
 
     if (!TargetTile)
@@ -509,13 +500,7 @@ bool ATBS_SmartAI::TryMoveUnit(AUnit* Unit)
 
     if (Success)
     {
-        // Record move
-        if (GameInstance)
-        {
-            GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Move", FromPosition, ToPosition, 0);
-        }
-
-        // Notify using game mode
+        // Record move through game mode
         ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
         if (GameMode)
         {
@@ -555,13 +540,7 @@ bool ATBS_SmartAI::TryAttackWithUnit(AUnit* Unit)
     // Attack the unit
     int32 Damage = Unit->Attack(TargetUnit);
 
-    // Record attack
-    if (GameInstance)
-    {
-        GameInstance->AddMoveToHistory(PlayerNumber, Unit->GetUnitName(), "Attack", FromPosition, ToPosition, Damage);
-    }
-
-    // Notify using game mode
+    // Record attack through game mode
     ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
     if (GameMode)
     {
@@ -570,6 +549,7 @@ bool ATBS_SmartAI::TryAttackWithUnit(AUnit* Unit)
 
     return true;
 }
+
 
 AUnit* ATBS_SmartAI::SelectBestAttackTarget(AUnit* AttackingUnit, const TArray<ATile*>& AttackableTiles)
 {
@@ -600,7 +580,7 @@ AUnit* ATBS_SmartAI::SelectBestAttackTarget(AUnit* AttackingUnit, const TArray<A
         else
             Score += 25.0f;
 
-        // Consider if we can eliminate the unit (major strategic advantage)
+        // Consider if it can eliminate the unit (major strategic advantage)
         if (AttackingUnit->GetAverageAttackDamage() >= TargetUnit->GetUnitHealth())
             Score += 200.0f;
 
