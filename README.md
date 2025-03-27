@@ -21,9 +21,10 @@ Fasi Partita:
 1) Scelta della difficoltà -> Easy (Random AI), Hard (Smart AI)
 2) Ad entrambe le parti in gioco vengono assegnate 2 Unità di gioco, una per tipo.
 3) Subito dopo avviene un lancio di una moneta per stabilire il primo giocatore che inizierà a piazzare le unità cliccando sulla cella dove vuole spawnarle.
-4) Finita la fase PLACEMENT inizierà il gioco vero e proprio, in cui ogni giocatore potrà muovere ed attaccare con le proprie unità. Se non volesse compiere una azione (o non potesse attaccare) Il tasto SKIP permette di skippare le azioni rimanenti disponibili per l'unità selezionata
-5) Se un unità viene selezzionata viene segnalato dall'HUD in basso a sinistra, mentre sulla destra compariranno le statistiche e la vita dell'ultima unità cliccata (alleata o nemica)
-6) Quando una delle due squadre rimane senza unità si procede al game over -> premendo il bottone reset si inizierà un nuovo round mantenendo il punteggio (se premuto prima della fine del round il punteggio rimarrà invariato e ricomincerà il round.
+4) Finita la fase PLACEMENT inizierà il gioco vero e proprio, in cui ogni giocatore potrà muovere ed attaccare con le proprie unità. Se non si volesse compiere una azione (o non si potesse attaccare) Il tasto SKIP permette di saltare le azioni rimanenti disponibili per l'unità selezionata
+5) Implementato tasto "End Turn" che permette di terminare preventivamente il proprio turno, saltando le azioni rimanenti di tutte le unità della propria squadra
+6) Se un unità viene selezzionata viene segnalato dall'HUD in basso a sinistra, mentre sulla destra compariranno le statistiche e la vita dell'ultima unità cliccata (alleata o nemica)
+7) Quando una delle due squadre rimane senza unità si procede al game over -> premendo il bottone reset si inizierà un nuovo round mantenendo il punteggio (se premuto prima della fine del round il punteggio rimarrà invariato e ricomincerà il round.
 
 Turno di Gioco
 - Selezionata un unità si può effettuare una delle seguenti opzioni:
