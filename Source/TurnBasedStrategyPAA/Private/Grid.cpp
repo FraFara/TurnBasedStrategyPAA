@@ -160,23 +160,12 @@ void AGrid::ValidateAllObstacles()
 			!Tile->GetOccupyingUnit() &&
 			Tile->GetOwner() != -2)
 		{
-			// Log this occurrence
-			GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Orange,
-				FString::Printf(TEXT("Clearing phantom obstacle at (%d,%d)"),
-					(int32)Tile->GetGridPosition().X, (int32)Tile->GetGridPosition().Y));
-
 			// Reset to empty state
 			Tile->SetTileStatus(NOT_ASSIGNED, ETileStatus::EMPTY);
 			clearedPhantoms++;
 		}
 	}
 
-	if (fixedObstacles > 0 || clearedPhantoms > 0)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow,
-			FString::Printf(TEXT("ValidateAllObstacles: Fixed %d obstacles, cleared %d phantoms"),
-				fixedObstacles, clearedPhantoms));
-	}
 }
 
 bool AGrid::ValidateConnectivity()
