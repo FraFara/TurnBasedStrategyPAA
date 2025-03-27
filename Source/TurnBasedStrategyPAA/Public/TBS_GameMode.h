@@ -232,4 +232,15 @@ public:
 	// Modified SpawnObstacles function to ensure connectivity
 	void SpawnObstaclesWithConnectivity();
 
+	// UserWidget for the End Turn Button
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> EndTurnButtonWidgetClass;
+
+	UPROPERTY()
+	UUserWidget* EndTurnButtonWidget;
+
+	// Function to show/hide end turn button
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ShowEndTurnButton(bool bShow);
+
 };

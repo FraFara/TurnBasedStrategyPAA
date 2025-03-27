@@ -707,6 +707,16 @@ void ATBS_GameMode::StartGameplayPhase()
         }
     }
 
+    // Show End Turn button if it's the human player's turn
+    if (CurrentPlayer == 0) // Human player is always index 0
+    {
+        ShowEndTurnButton(true);
+    }
+    else
+    {
+        ShowEndTurnButton(false);
+    }
+
     // Notify the player it's their turn (with delay to ensure everything is set up)
     FTimerHandle TurnStartTimerHandle;
     GetWorldTimerManager().SetTimer(TurnStartTimerHandle, [this]()
@@ -717,8 +727,12 @@ void ATBS_GameMode::StartGameplayPhase()
             }
         }, 0.5f, false);
 }
+
 void ATBS_GameMode::EndTurn()
 {
+    // Hide the End Turn button
+    ShowEndTurnButton(false);
+
     // Let the current player know their turn is ending
     if (Players.IsValidIndex(CurrentPlayer))
     {
@@ -1499,4 +1513,30 @@ void ATBS_GameMode::SpawnObstaclesWithConnectivity()
     //GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
     //    FString::Printf(TEXT("Successfully placed %d obstacles (%.1f%%)"),
     //        PlacedObstacles, (float)PlacedObstacles / TotalTileCount * 100.0f));
+}
+
+void ATBS_GameMode::ShowEndTurnButton(bool bShow)
+{
+    // Create the widget if it doesn't exist
+    if (!EndTurnButtonWidget && EndTurnButtonWidgetClass)
+    {
+        APlayerController* PC = GetWorld()->GetFirstPlayerController();
+        if (PC)
+        {
+            EndTurnButtonWidget = CreateWidget<UUserWidget>(PC, EndTurnButtonWidgetClass);
+        }
+    }
+
+    // Show or hide the widget
+    if (EndTurnButtonWidget)
+    {
+        if (bShow && !EndTurnButtonWidget->IsInViewport())
+        {
+            EndTurnButtonWidget->AddToViewport(100); // Place on top
+        }
+        else if (!bShow && EndTurnButtonWidget->IsInViewport())
+        {
+            EndTurnButtonWidget->RemoveFromViewport();
+        }
+    }
 }

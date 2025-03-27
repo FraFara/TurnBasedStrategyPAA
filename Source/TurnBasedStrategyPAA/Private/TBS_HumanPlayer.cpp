@@ -92,6 +92,13 @@ void ATBS_HumanPlayer::OnTurn_Implementation()
 	{
 		GameInstance->SetTurnMessage(TEXT("Your Turn - Select a unit"));
 	}
+
+	// Show the End Turn button only if in gameplay phase
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode && GameMode->CurrentPhase == EGamePhase::GAMEPLAY)
+	{
+		GameMode->ShowEndTurnButton(true);
+	}
 }
 
 void ATBS_HumanPlayer::OnWin_Implementation()
@@ -518,6 +525,20 @@ void ATBS_HumanPlayer::SetTurnState_Implementation(bool bNewTurnState)
 
 		// Make sure to find units when turn starts
 		FindMyUnits();
+
+		// Show the End Turn button if we're in gameplay phase
+		if (GameMode && GameMode->CurrentPhase == EGamePhase::GAMEPLAY)
+		{
+			GameMode->ShowEndTurnButton(true);
+		}
+	}
+	else
+	{
+		// Hide the End Turn button when turn ends
+		if (GameMode)
+		{
+			GameMode->ShowEndTurnButton(false);
+		}
 	}
 }
 
@@ -734,6 +755,46 @@ FString ATBS_HumanPlayer::GetSelectionMessage() const
 		// Default state - no unit selected or enemy unit clicked
 		return FString(TEXT("Click on your unit to select it"));
 	}
+}
+
+void ATBS_HumanPlayer::ForceEndTurn()
+{
+	if (!IsMyTurn)
+		return;
+
+	// Gets the latest list of units
+	FindMyUnits();
+
+	// Mark all player units as having completed their actions
+	for (AUnit* Unit : MyUnits)
+	{
+		if (Unit)
+		{
+			Unit->bHasMoved = true;
+			Unit->bHasAttacked = true;
+		}
+	}
+
+	// Get the game mode and end turn
+	ATBS_GameMode* GameMode = Cast<ATBS_GameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode)
+	{
+		// End turn with a slight delay to allow messages to be read
+		FTimerHandle TimerHandle;
+		GetWorldTimerManager().SetTimer(TimerHandle, [this, GameMode]()
+			{
+				GameMode->EndTurn();
+			}, 0.5f, false);
+	}
+
+	// Clear any selections
+	if (SelectedTile)
+	{
+		SelectedTile->ClearHighlight();
+	}
+	SelectedUnit = nullptr;
+	SelectedTile = nullptr;
+	ClearHighlightedTiles();
 }
 
 void ATBS_HumanPlayer::PlaceUnit(int32 GridX, int32 GridY, EUnitType Type)

@@ -154,4 +154,9 @@ public:
 	// UI Selection Detector
 	UFUNCTION(BlueprintCallable, Category = "UI")
 	FString GetSelectionMessage() const;
+
+	// Ends player turn early
+	UFUNCTION(BlueprintCallable, Category = "Gameplay")
+	void ForceEndTurn();
+
 };
