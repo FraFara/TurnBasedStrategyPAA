@@ -983,7 +983,47 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
     CurrentPhase = EGamePhase::ROUND_END;
     bIsGameOver = true;
 
-    // Notify all players about the winner
+    // Check for a draw scenario
+    bool bIsDraw = false;
+
+    // Count remaining units for each player
+    TArray<AActor*> PlayerUnits;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AUnit::StaticClass(), PlayerUnits);
+
+    TArray<int32> RemainingUnitsPerPlayer;
+    RemainingUnitsPerPlayer.SetNum(NumberOfPlayers);
+
+    for (AActor* Actor : PlayerUnits)
+    {
+        AUnit* Unit = Cast<AUnit>(Actor);
+        if (Unit && !Unit->IsDead())
+        {
+            int32 OwnerID = Unit->GetOwnerID();
+            if (OwnerID >= 0 && OwnerID < NumberOfPlayers)
+            {
+                RemainingUnitsPerPlayer[OwnerID]++;
+            }
+        }
+    }
+
+    // Check if both players have 0 units
+    bool bAllPlayersOutOfUnits = true;
+    for (int32 UnitCount : RemainingUnitsPerPlayer)
+    {
+        if (UnitCount > 0)
+        {
+            bAllPlayersOutOfUnits = false;
+            break;
+        }
+    }
+
+    // If all players are out of units, it's a draw
+    if (bAllPlayersOutOfUnits)
+    {
+        bIsDraw = true;
+    }
+
+    // Notify all players about the result
     for (int32 i = 0; i < Players.Num(); i++)
     {
         if (Players.IsValidIndex(i))
@@ -995,7 +1035,12 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
                 ITBS_PlayerInterface* PlayerInterface = Cast<ITBS_PlayerInterface>(PlayerActor);
                 if (PlayerInterface)
                 {
-                    if (i == PlayerIndex)
+                    if (bIsDraw)
+                    {
+                        // Call OnLose for both players in case of a draw
+                        ITBS_PlayerInterface::Execute_OnLose(PlayerActor);
+                    }
+                    else if (i == PlayerIndex)
                     {
                         // Call the OnWin function
                         ITBS_PlayerInterface::Execute_OnWin(PlayerActor);
@@ -1010,29 +1055,38 @@ void ATBS_GameMode::PlayerWon(int32 PlayerIndex)
         }
     }
 
-    // Get game instance to update the score and set the winner
+    // Get game instance to update the result
     UTBS_GameInstance* GameInstance = Cast<UTBS_GameInstance>(GetGameInstance());
     if (GameInstance)
     {
-        // Update score
-        if (PlayerIndex == 0)
+        if (bIsDraw)
         {
-            GameInstance->IncrementScoreHumanPlayer();
+            // If it's a draw, don't increment scores
+            GameInstance->SetTurnMessage(TEXT("The game is a DRAW! (No scores updated)"));
+            GameInstance->SetWinner(-1); // Indicate a draw
         }
         else
         {
-            GameInstance->IncrementScoreAiPlayer();
+            // Update score as normal
+            if (PlayerIndex == 0)
+            {
+                GameInstance->IncrementScoreHumanPlayer();
+            }
+            else
+            {
+                GameInstance->IncrementScoreAiPlayer();
+            }
+
+            // Set the winner in the game instance
+            GameInstance->SetWinner(PlayerIndex);
+
+            // Show end game message
+            FString WinnerName = (PlayerIndex == 0) ? TEXT("Human Player") : TEXT("AI Player");
+            FString EndGameMessage = FString::Printf(TEXT("%s has WON! (Score: Human %d - AI %d). Press 'New Round' to start again"),
+                *WinnerName, GameInstance->GetScoreHumanPlayer(), GameInstance->GetScoreAiPlayer());
+
+            GameInstance->SetTurnMessage(EndGameMessage);
         }
-
-        // Set the winner in the game instance
-        GameInstance->SetWinner(PlayerIndex);
-
-        // Show end game message
-        FString WinnerName = (PlayerIndex == 0) ? TEXT("Human Player") : TEXT("AI Player");
-        FString EndGameMessage = FString::Printf(TEXT("%s has WON! (Score: Human %d - AI %d). Press 'New Round' to start again"),
-            *WinnerName, GameInstance->GetScoreHumanPlayer(), GameInstance->GetScoreAiPlayer());
-
-        GameInstance->SetTurnMessage(EndGameMessage);
     }
 }
 
@@ -1057,7 +1111,10 @@ void ATBS_GameMode::ResetForNewRound(int32 WinnerIndex)
         GameInstance->SetTurnMessage(NewRoundMessage);
     }
 
-    // Clear any UI widgets immediately
+    // Hide End Turn button
+    ShowEndTurnButton(false);
+
+    // Clear any UI widgets
     HideUnitSelectionUI();
 
     if (CoinTossWidget && CoinTossWidget->IsInViewport())

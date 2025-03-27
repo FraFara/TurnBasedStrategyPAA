@@ -178,6 +178,12 @@ FString UTBS_GameInstance::GetWinnerMessage() const
 {
     if (CurrentWinner < 0)
     {
+        // If CurrentWinner is -1, it's a draw
+        if (CurrentWinner == -1)
+        {
+            return TEXT("Game ended in a DRAW!  Press 'New Round' to start again");
+        }
+
         return FString(); // No winner yet
     }
 
